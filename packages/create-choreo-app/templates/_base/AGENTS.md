@@ -1,4 +1,4 @@
-<!-- Choreo governance file, version 1. Platform Engineering owns this file, and the package's update command rewrites it. An edited copy fails CI. Put this repository's own notes in BUILDER.md. -->
+<!-- Choreo governance file, version 2. Platform Engineering owns this file, and the package's update command rewrites it. An edited copy fails CI. Put this repository's own notes in BUILDER.md. -->
 
 # Agent instructions
 
@@ -39,9 +39,9 @@ On either road, leave PE's files alone: this file, `CLAUDE.md` and the deploy wo
 
 The repository's history becomes public when the app goes live, and deleting a file doesn't remove it from the history. Never commit real data or anything derived from it: database exports, sample records, screenshots of real screens, log excerpts or internal hostnames. Use made-up data for fixtures, seeds and tests. If the builder shares real data in the conversation, use it only to understand its shape, and write made-up data in its place.
 
-## 6. No production credentials
+## 6. No credentials, anywhere
 
-Never ask for, hold or use a production credential. The app reads its secrets at runtime from its own key vault through its managed identity. Keep secrets out of code, configuration, `.env` files and commit messages. If you find a secret in the repository, stop and tell the builder. It has to be rotated, because deleting it doesn't remove it from the history.
+Never ask for, accept, hold or use a credential: a password, API key, token, connection string, certificate or private key. That includes this conversation. If the builder pastes one, don't use it or repeat it, and tell them it has to be rotated, because it has left the one place it belonged. The app reads its secrets at runtime from its own key vault through its managed identity, which PE sets up. Never put a secret in code, configuration, `.env` files, test fixtures, logs, error messages, browser storage, commit messages or `BUILDER.md`. If you find one in the repository, stop and tell the builder. It has to be rotated, because deleting it doesn't remove it from the history.
 
 ## 7. Ask before anything you can't undo
 

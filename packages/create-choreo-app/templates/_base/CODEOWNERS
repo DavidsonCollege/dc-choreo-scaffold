@@ -1,0 +1,6 @@
+# Managed by Platform Engineering. Every change to these files needs PE's approval.
+# Add owners for your own files above these lines: in CODEOWNERS the last
+# matching line wins.
+/PASSPORT.yml @DavidsonChoreo/platform-engineering
+/AGENTS.md @DavidsonChoreo/platform-engineering
+/CLAUDE.md @DavidsonChoreo/platform-engineering
