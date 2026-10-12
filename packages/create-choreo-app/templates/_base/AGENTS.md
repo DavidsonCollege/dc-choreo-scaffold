@@ -16,7 +16,7 @@ When a change makes the passport untrue, update the passport in the same change 
 - `audience_scope`, `brand`, `indexable` and `custom_domain`
 - `integrations`, `llm`, `roles` and `regulations`
 
-List every outside host or vendor the app calls in `integrations`, and any LLM provider in `llm`.
+List every platform the app connects to in `integrations` by name, such as Slate or Workday, never by hostname. List any LLM provider in `llm`.
 
 ## 3. Dependencies
 
