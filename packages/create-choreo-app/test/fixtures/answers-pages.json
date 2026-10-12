@@ -1,0 +1,30 @@
+{
+  "purpose": "A public page with a made-up office's hours, location and a short list of common questions.",
+  "app_owners": [
+    { "name": "Riley Example", "email": "riexample@davidson.edu" }
+  ],
+  "business_owner": { "name": "Casey Example", "email": "caexample@davidson.edu" },
+  "department": "Example Office",
+  "custody": "If the app owners leave, the office manager names a successor within 30 days.",
+  "profile": {
+    "door": "look",
+    "audience": "public",
+    "clearance": true,
+    "data_classification": "public",
+    "source": "none",
+    "writes": "none",
+    "consumption": "web"
+  },
+  "audience_scope": "external",
+  "brand": "branded",
+  "indexable": true,
+  "custom_domain": null,
+  "build_environment": "host-node",
+  "built_with": "davidson-choreo@0.2.0",
+  "risk_tier": "high",
+  "regulations": [],
+  "roles": [],
+  "integrations": [],
+  "llm": null,
+  "retention": []
+}

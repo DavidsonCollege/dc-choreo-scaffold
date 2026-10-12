@@ -1,0 +1,14 @@
+# Every text file is stored and checked out with LF line endings. The governance
+# files are compared by hash in every app's CI, so a Windows checkout must not
+# turn them into CRLF.
+* text=auto eol=lf
+
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.tgz binary

@@ -1,0 +1,16 @@
+{
+  "name": "dc-choreo-scaffold",
+  "private": true,
+  "type": "module",
+  "description": "Workspace for @davidson/create-choreo-app and @davidson/choreo-layer, the Choreo paved road.",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.22.3"
+  },
+  "scripts": {
+    "test": "npm test --workspaces --if-present"
+  }
+}
