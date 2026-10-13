@@ -1,0 +1,15 @@
+# Kept out of the image build: installed and built files, git history, and
+# anything that could hold a credential.
+node_modules
+.output
+.nuxt
+.data
+.nitro
+.cache
+.git
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12

@@ -3,7 +3,7 @@
 The Choreo paved road for Davidson College builders, run by Technology & Innovation's Platform Engineering team. It holds two packages:
 
 - `@davidson/create-choreo-app`, the command line that starts a hosted app and keeps Platform Engineering's files in it current
-- `@davidson/choreo-layer`, the shared Nuxt layer (coming next)
+- `@davidson/choreo-layer`, the shared Nuxt layer every paved-road app extends
 
 Neither is released yet. Releases will be GitHub Releases in this repository, with the packed packages attached; there's no npm registry. The repository is public so builders can download them without signing in.
 
@@ -17,13 +17,23 @@ The Choreo plugin runs it for the builder. It never asks a question, `--json` pr
 | `update [dir]` | Brings Platform Engineering's files to this version, without touching the builder's own |
 | `verify [dir]` | Reports drift from this version, and anything that looks like a credential |
 | `doctor` | Checks the laptop: Node, npm, git, the GitHub CLI and its sign-in, and reaching npm and GitHub |
-| `create` | Starts a paved-road Nuxt app (coming next) |
+| `create <name> --tier pages\|container --answers answers.json` | Starts a paved-road Nuxt app: the template, the passport and Platform Engineering's files |
 
 Until the first release, run it from a clone:
 
 ```
 node packages/create-choreo-app/bin/create-choreo-app.js doctor
 ```
+
+## The layer
+
+`packages/choreo-layer` reads the app's `PASSPORT.yml` when the app builds:
+
+- Every page gets `lang="en"`, a title, and `noindex` when the passport says the app isn't indexable.
+- A Pages site without a custom domain is built for `https://davidsonchoreo.github.io/<app>/`.
+- `robots.txt` always allows crawling; an indexable site also gets `sitemap.xml`.
+- A container app gets `/health`, answered without sign-in, and an `X-Robots-Tag: noindex` header when it isn't indexable.
+- Tailwind, the brand tokens, and the shared header and footer. The brand colors are placeholders until College Communications' values are in.
 
 ## The governance files
 

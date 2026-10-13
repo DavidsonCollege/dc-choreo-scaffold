@@ -1,0 +1,25 @@
+{
+  "name": "@davidson/choreo-layer",
+  "version": "0.1.0",
+  "description": "The shared Nuxt layer for Choreo apps: the Davidson header and footer, brand tokens, and robots, noindex and health handling read from PASSPORT.yml.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./nuxt.config.ts",
+  "files": [
+    "nuxt.config.ts",
+    "lib/",
+    "runtime/",
+    "assets/",
+    "app/"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@nuxt/kit": "4.6.1",
+    "@tailwindcss/vite": "4.3.3",
+    "h3": "1.15.11",
+    "tailwindcss": "4.3.3",
+    "yaml": "2.9.1"
+  }
+}

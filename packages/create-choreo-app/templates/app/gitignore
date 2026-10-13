@@ -1,0 +1,29 @@
+# Nuxt build output
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Installed dependencies
+node_modules
+
+# Logs
+logs
+*.log
+
+# Editors and the operating system
+.DS_Store
+.fleet
+.idea
+
+# Credentials never go in the repository. The app reads its secrets from its
+# key vault at runtime (AGENTS.md rule 6).
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12

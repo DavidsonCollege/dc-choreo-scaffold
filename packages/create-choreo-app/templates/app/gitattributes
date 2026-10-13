@@ -1,0 +1,12 @@
+# Text files use LF line endings, so AGENTS.md and CLAUDE.md match their
+# canonical hashes on every computer.
+* text=auto eol=lf
+
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary

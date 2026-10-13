@@ -13,6 +13,7 @@
 
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
+import { create } from '../src/create.js';
 import { doctor } from '../src/doctor.js';
 import { PACKAGE_VERSION } from '../src/files.js';
 import { governance } from '../src/governance.js';
@@ -27,6 +28,7 @@ const TIERS = ['pages', 'container'];
 const USAGE = `create-choreo-app ${PACKAGE_VERSION}
 
 Usage:
+  create-choreo-app create <name> --tier pages|container --answers answers.json [--force]
   create-choreo-app governance [dir] --tier pages|container --answers answers.json [--app name]
   create-choreo-app update [dir]
   create-choreo-app verify [dir]
@@ -34,6 +36,7 @@ Usage:
 
 Flags:
   --json     Print one JSON object instead of plain lines.
+  --force    create: write into a folder that isn't empty.
   --yes      Accepted and ignored; the command never asks a question.
   --help     Show this.
 
@@ -57,6 +60,7 @@ async function main(argv) {
         answers: { type: 'string' },
         app: { type: 'string' },
         json: { type: 'boolean', default: false },
+        force: { type: 'boolean', default: false },
         yes: { type: 'boolean', default: false },
         help: { type: 'boolean', default: false },
         version: { type: 'boolean', default: false },
@@ -97,8 +101,17 @@ async function main(argv) {
       const result = await doctor();
       return print(result, json, () => checkLines(result.checks));
     }
-    case 'create':
-      return usage("create isn't in this version yet; it arrives with the app template.", json);
+    case 'create': {
+      const name = positionals[1];
+      if (!name) return usage("create needs the app's name, such as `create advising-bookings`.", json);
+      const tier = values.tier ?? '';
+      if (!TIERS.includes(tier)) return usage('create needs --tier pages or --tier container.', json);
+      if (!values.answers) return usage('create needs --answers, the answers file the plugin writes.', json);
+      const answers = readAnswers(values.answers);
+      if (answers instanceof Error) return usage(answers.message, json);
+      const result = create({ name, tier: /** @type {'pages' | 'container'} */ (tier), answers, force: Boolean(values.force) });
+      return print(result, json, () => [...writtenLines(result), ...(result.ok ? ['', 'Next:', ...result.next.map((step) => `  ${step}`)] : [])]);
+    }
     default:
       return usage(`${command} isn't a command.`, json);
   }
