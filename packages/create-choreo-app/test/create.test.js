@@ -132,3 +132,24 @@ test('the next steps install, start git and run the app', () => {
   const { result } = make('pages');
   assert.deepEqual(result.next.slice(0, 3), ['cd example-app', 'npm install', 'git init']);
 });
+
+test('a release lockfile is written as the app\'s package-lock.json, named for the app, and installed with npm ci', () => {
+  const where = parent();
+  const lockfile = join(where, 'app-lock.json');
+  writeFileSync(lockfile, `${JSON.stringify({ name: 'choreo-app', lockfileVersion: 3, packages: { '': { name: 'choreo-app' }, 'node_modules/nuxt': { version: '4.6.1' } } }, null, 2)}\n`);
+  const result = create({ name: 'example-app', tier: 'container', answers: answers(), parent: where, today, lockfile });
+  assert.equal(result.ok, true, JSON.stringify(result.problems));
+  assert.ok(result.written.includes('package-lock.json'));
+  const lock = JSON.parse(read(join(where, 'example-app'), 'package-lock.json'));
+  assert.equal(lock.name, 'example-app');
+  assert.equal(lock.packages[''].name, 'example-app');
+  assert.equal(lock.packages['node_modules/nuxt'].version, '4.6.1');
+  assert.equal(result.next[1], 'npm ci');
+});
+
+test('without a release lockfile, there is no package-lock.json and the next step is npm install', () => {
+  const where = parent();
+  const result = create({ name: 'example-app', tier: 'pages', answers: answers('answers-pages.json'), parent: where, today, lockfile: join(where, 'missing.json') });
+  assert.equal(result.written.includes('package-lock.json'), false);
+  assert.equal(result.next[1], 'npm install');
+});

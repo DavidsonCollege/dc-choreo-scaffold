@@ -7,7 +7,7 @@ import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { governance } from '../src/governance.js';
 import { update, compareVersions } from '../src/update.js';
-import { hashOf, readTemplate } from '../src/files.js';
+import { PACKAGE_VERSION, hashOf, readTemplate } from '../src/files.js';
 import { answers, fixture, put, read, tmpApp } from './helpers.js';
 
 const today = new Date(2026, 9, 12);
@@ -21,7 +21,7 @@ function olderApp() {
   put(dir, 'BUILDER.md', '# Building notes\n\nOur own notes.\n');
   put(dir, '.github/CODEOWNERS', '/src/ @example-builder\n\n# Managed by Platform Engineering. An old block.\n/PASSPORT.yml @someone-else\n');
   const passport = read(dir, 'PASSPORT.yml')
-    .replace('scaffolded_with: "@davidson/create-choreo-app@0.1.0"', '# A builder comment.\nscaffolded_with: "@davidson/create-choreo-app@0.0.9"')
+    .replace(`scaffolded_with: "@davidson/create-choreo-app@${PACKAGE_VERSION}"`, '# A builder comment.\nscaffolded_with: "@davidson/create-choreo-app@0.0.9"')
     .replaceAll('\n', '\r\n');
   put(dir, 'PASSPORT.yml', passport);
   return dir;
@@ -32,7 +32,7 @@ test('update brings the governance files current', () => {
   const result = update({ dir });
   assert.equal(result.ok, true, JSON.stringify(result.problems));
   assert.equal(result.from, '0.0.9');
-  assert.equal(result.to, '0.1.0');
+  assert.equal(result.to, PACKAGE_VERSION);
   assert.equal(hashOf(read(dir, 'AGENTS.md')), hashOf(readTemplate('AGENTS.md')));
   assert.equal(read(dir, 'CLAUDE.md'), '@AGENTS.md\n');
 });
@@ -51,7 +51,7 @@ test('update changes only the scaffolded_with line of the passport', () => {
   const before = read(dir, 'PASSPORT.yml');
   update({ dir });
   const after = read(dir, 'PASSPORT.yml');
-  assert.equal(after, before.replace('create-choreo-app@0.0.9"', 'create-choreo-app@0.1.0"'));
+  assert.equal(after, before.replace('create-choreo-app@0.0.9"', `create-choreo-app@${PACKAGE_VERSION}"`));
   assert.ok(after.includes('# A builder comment.\r\n'));
 });
 

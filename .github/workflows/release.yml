@@ -4,9 +4,14 @@
 # package.json say X.Y.Z (they share one version). The job:
 #   1. checks the tag matches both versions and the commit is on main
 #   2. installs from the committed lockfile and runs the unit tests
-#   3. packs both packages
-#   4. attests both tarballs, so anyone can check they were built here
-#   5. creates the GitHub Release with both tarballs attached
+#   3. packs the layer
+#   4. makes the lockfile new apps start from, and tests it: a throwaway app
+#      installs from it with npm ci, type-checks and builds. Only then is its
+#      layer entry pointed at this release, and it goes into the command line
+#      (scripts/template-lockfile.mjs), so apps start from exactly what this run tested
+#   5. packs the command line
+#   6. attests both tarballs, so anyone can check they were built here
+#   7. creates the GitHub Release with both tarballs attached
 #
 # There's no npm registry. Builders run the command line from the release:
 #   gh release download vX.Y.Z -R DavidsonCollege/dc-choreo-scaffold -p 'davidson-create-choreo-app-*.tgz'
@@ -66,10 +71,25 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm test
 
-      - name: Pack both packages
+      - name: Pack the layer
         run: |
           mkdir dist
-          npm pack -w packages/create-choreo-app -w packages/choreo-layer --pack-destination dist
+          npm pack -w packages/choreo-layer --pack-destination dist
+
+      - name: Make and test the lockfile new apps start from
+        run: |
+          version="${TAG#v}"
+          url=$(node -p "require('./packages/create-choreo-app/src/manifest.json').layer.release.replaceAll('{version}', '$version')")
+          node scripts/template-lockfile.mjs --check \
+            --layer "dist/davidson-choreo-layer-${version}.tgz" \
+            --layer-ref "$url" \
+            --out packages/create-choreo-app/templates/app-lock.json
+
+      - name: Pack the command line, with the tested lockfile
+        run: |
+          npm pack -w packages/create-choreo-app --pack-destination dist
+          tar -tzf "dist/davidson-create-choreo-app-${TAG#v}.tgz" | grep -q 'package/templates/app-lock.json' \
+            || { echo "::error::The packed command line has no templates/app-lock.json."; exit 1; }
           ls -l dist
 
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
@@ -92,6 +112,6 @@ jobs:
           npx --yes --package ./davidson-create-choreo-app-${version}.tgz create-choreo-app doctor
           \`\`\`
 
-          Apps made with this version install the layer from this release.
+          Apps made with this version install the layer from this release, and start from the lockfile this release tested: their first install, \`npm ci\`, gets exactly that set of packages.
           EOF
           gh release create "$TAG" dist/*.tgz --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file notes.md --verify-tag
