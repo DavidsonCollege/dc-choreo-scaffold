@@ -305,6 +305,7 @@ test('server code outside the /api guard gets one warning per file', () => {
       { route: '/export', method: 'get', handler: 'C:/apps/example-app/server/routes/export.get.ts' },
       { middleware: true, handler: 'C:/apps/example-app/server/middleware/log.ts' },
       { route: '/debug', env: 'dev', handler: 'C:/apps/example-app/server/routes/debug.dev.ts' },
+      { route: '/seed', env: ['dev', 'prerender'], handler: 'C:/apps/example-app/server/routes/seed.ts' },
       { middleware: true, handler: 'C:/apps/example-app/server/middleware/trace.dev.ts' },
     ],
     serverComponents: ['C:/apps/example-app/app/components/Grades.server.vue'],

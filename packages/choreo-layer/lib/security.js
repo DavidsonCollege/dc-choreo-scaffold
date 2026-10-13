@@ -392,7 +392,7 @@ const DEV_ONLY = /\.dev\.[A-Za-z]+$/;
  * code is reviewed at the publish request.
  *
  * @param {object} found
- * @param {{ route?: string, middleware?: boolean, handler: string, env?: string }[]} found.handlers
+ * @param {{ route?: string, middleware?: boolean, handler: string, env?: string | string[] }[]} found.handlers
  *   The app's server files as Nitro scanned them.
  * @param {string[]} found.serverComponents Paths of the app's server components and server pages.
  * @param {string} found.rootDir The app's folder.
@@ -407,7 +407,7 @@ export function outsideGuard({ handlers, serverComponents, rootDir }) {
   /** @type {string[]} */
   const warnings = [];
   for (const handler of handlers) {
-    if (handler.env === 'dev' || DEV_ONLY.test(handler.handler)) continue;
+    if ([handler.env].flat().includes('dev') || DEV_ONLY.test(handler.handler)) continue;
     const file = local(handler.handler);
     if (handler.middleware || !handler.route) {
       warnings.push(`${file} is server middleware, which runs before the layer's sign-in check on every request. It must not return data or answer requests itself; put data behind server/api/ routes that call requireUser or requireRole. ${REVIEW_NOTE}`);

@@ -56,7 +56,7 @@ export function guard(
   options?: { anyPath?: boolean },
 ): Promise<GuardResult>
 export function outsideGuard(found: {
-  handlers: { route?: string, middleware?: boolean, handler: string, env?: string }[]
+  handlers: { route?: string, middleware?: boolean, handler: string, env?: string | string[] }[]
   serverComponents: string[]
   rootDir: string
 }): string[]
