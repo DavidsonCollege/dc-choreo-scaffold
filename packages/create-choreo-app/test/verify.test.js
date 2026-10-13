@@ -7,6 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { governance } from '../src/governance.js';
 import { verify } from '../src/verify.js';
 import { buildPassport, toYaml } from '../src/passport.js';
@@ -176,4 +177,30 @@ test('a missing passport fails', () => {
   const dir = governed();
   rmSync(`${dir}/PASSPORT.yml`);
   assert.equal(status(verify({ dir }), 'passport'), 'fail');
+});
+
+test("a container app's deploy stub: missing and edited fail, the builder's own is a warning", () => {
+  const dir = governed();
+  assert.equal(status(verify({ dir }), 'deploy-stub'), 'pass');
+
+  put(dir, '.github/workflows/deploy.yml', read(dir, '.github/workflows/deploy.yml').replaceAll('\n', '\r\n'));
+  assert.equal(status(verify({ dir }), 'deploy-stub'), 'pass');
+
+  put(dir, '.github/workflows/deploy.yml', `${read(dir, '.github/workflows/deploy.yml')}      extra: true\n`);
+  assert.equal(status(verify({ dir }), 'deploy-stub'), 'fail');
+
+  put(dir, '.github/workflows/deploy.yml', 'name: deploy\non: push\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./deploy.sh\n');
+  const own = verify({ dir });
+  assert.equal(own.ok, true);
+  assert.equal(status(own, 'deploy-stub'), 'warn');
+  assert.match(message(own, 'deploy-stub'), /publish request/);
+
+  rmSync(join(dir, '.github/workflows/deploy.yml'));
+  assert.equal(status(verify({ dir }), 'deploy-stub'), 'fail');
+});
+
+test('a Pages site has no deploy stub check', () => {
+  const dir = paved('pages');
+  rmSync(join(dir, '.github/workflows/deploy.yml'));
+  assert.equal(status(verify({ dir }), 'deploy-stub'), undefined);
 });

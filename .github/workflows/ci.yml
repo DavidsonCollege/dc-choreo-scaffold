@@ -3,7 +3,8 @@
 # test:           the package's unit tests.
 # sync:           the copies this package carries of files that live in
 #                 DavidsonChoreo/dc-choreo-workflows (the passport schema, PE's
-#                 CODEOWNERS block, and the hashes of AGENTS.md and CLAUDE.md)
+#                 CODEOWNERS block, the deploy stub, and the hashes of AGENTS.md
+#                 and CLAUDE.md)
 #                 still match that repository's main branch.
 # governance-app: a made-up app written by `governance`, checked by the real
 #                 Choreo passport, license and files checks.
@@ -26,7 +27,7 @@ permissions:
 env:
   # The dc-choreo-workflows commit whose check code the test apps run. Bump it,
   # by full SHA, when the checks change.
-  CHECKS_REF: 12749e9b75ea2d89e5327ee7ec2584b46b7bd89b
+  CHECKS_REF: dfb15197f534a56fc55d3bfe9f9d8dd53cd2e46a
 
 jobs:
   test:
@@ -64,6 +65,9 @@ jobs:
         run: |
           cmp packages/create-choreo-app/templates/_base/CODEOWNERS workflows/canonical/CODEOWNERS \
             || { echo "::error::templates/_base/CODEOWNERS differs from dc-choreo-workflows canonical/CODEOWNERS."; exit 1; }
+      - name: The deploy stub copy matches
+        run: |
+          cmp packages/create-choreo-app/templates/_base/deploy.yml workflows/canonical/deploy.yml             || { echo "::error::templates/_base/deploy.yml differs from dc-choreo-workflows canonical/deploy.yml. Copy the stub over it."; exit 1; }
       - name: AGENTS.md and CLAUDE.md are listed in canonical/hashes.json
         run: |
           node --input-type=module -e "
@@ -208,14 +212,12 @@ jobs:
           # Runs one check. "strict" also fails on a warning, because the
           # indexing and accessibility checks turn "Chrome missing" or "the
           # server didn't start" into a warning that would otherwise pass.
-          # "report" shows the result without failing the job.
           check() {
             echo "::group::$1"
             out=$(node "$CHECKS" "$1" 2>&1) && code=0 || code=$?
             echo "$out"
             echo "::endgroup::"
-            if [ "$code" -ne 0 ] && [ "${2:-}" = report ]; then echo "::warning::The $1 check failed; reported only, see DavidsonCollege/platform-engineering#84."
-            elif [ "$code" -ne 0 ]; then failed="$failed $1"; fi
+            if [ "$code" -ne 0 ]; then failed="$failed $1"; fi
             if [ "${2:-}" = strict ] && echo "$out" | grep -q '::warning'; then failed="$failed $1(warning)"; fi
           }
           for name in passport license files tier code dependencies; do check "$name"; done
@@ -225,9 +227,9 @@ jobs:
           GITLEAKS_REPORT="$RUNNER_TEMP/gitleaks.json" check secrets
 
           npm ci --no-audit --no-fund
-          # Report only, for now: the audit fails every Nuxt app on build-time
-          # findings with no published fix (DavidsonCollege/platform-engineering#84).
-          check audit report
+          # A vulnerable dependency warns and never fails (decision 40 in
+          # pipeline.md), so the audit runs like every other check.
+          check audit
           "$GITHUB_WORKSPACE/checks-src/node_modules/.bin/knip" --dependencies --reporter json --no-exit-code \
             > "$RUNNER_TEMP/knip.json" 2>/dev/null || rm -f "$RUNNER_TEMP/knip.json"
           KNIP_REPORT="$RUNNER_TEMP/knip.json" check unused

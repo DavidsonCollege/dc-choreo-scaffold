@@ -10,14 +10,18 @@
 // An existing AGENTS.md or CLAUDE.md that isn't PE's is the repository's own
 // notes. Its text moves into BUILDER.md under a heading, so nothing is lost.
 //
+// A container app also gets the deploy stub. An existing deploy.yml of the
+// builder's own is kept, not replaced: the app is still incubating, and PE
+// swaps it for the stub at the publish request, when the app's hosting exists.
+//
 // Input: the app's folder, the parsed answers, the tier, the app name, today.
-// Output: { ok, command, written, moved, problems }.
+// Output: { ok, command, written, moved, kept, problems }.
 
 import { existsSync, statSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import {
-  GOVERNED_FILES, PACKAGE_VERSION, findCodeowners, findLicense, hashOf, isApache,
-  mergeCodeowners, readIfExists, readTemplate, writeText,
+  DEPLOY_STUB, GOVERNED_FILES, PACKAGE_VERSION, findCodeowners, findLicense, hashOf, isApache,
+  isDeployStub, mergeCodeowners, readIfExists, readTemplate, writeText,
 } from './files.js';
 import { buildPassport, toYaml } from './passport.js';
 
@@ -31,6 +35,7 @@ import { buildPassport, toYaml } from './passport.js';
  * @property {string} command Always "governance".
  * @property {string[]} written Paths written, relative to the app's folder.
  * @property {string[]} moved Files whose old text moved into BUILDER.md.
+ * @property {string[]} kept The builder's own deploy.yml, left for PE to swap.
  * @property {Problem[]} problems Why nothing was written, when ok is false.
  */
 
@@ -66,7 +71,7 @@ export function governance({ dir, answers, tier, app, today = new Date() }) {
   problems.push(...built.problems);
   if (problems.length > 0) return refuse(problems);
 
-  const { written, moved } = writeGovernedFiles(root, { keepOldText: true });
+  const { written, moved, kept } = writeGovernedFiles(root, { keepOldText: true, tier });
   if (licenseText === null) {
     writeText(root, 'LICENSE', readTemplate('LICENSE'));
     written.push('LICENSE');
@@ -74,12 +79,17 @@ export function governance({ dir, answers, tier, app, today = new Date() }) {
   writeText(root, 'PASSPORT.yml', toYaml(built.passport));
   written.push('PASSPORT.yml');
 
-  return { ok: true, command: 'governance', written, moved, problems: [] };
+  return { ok: true, command: 'governance', written, moved, kept, problems: [] };
 }
 
 /**
- * Writes AGENTS.md, CLAUDE.md and PE's CODEOWNERS block, and a starter
- * BUILDER.md when there's none. Shared by create, governance and update.
+ * Writes AGENTS.md, CLAUDE.md and PE's CODEOWNERS block, a starter BUILDER.md
+ * when there's none, and a container app's deploy stub. Shared by create,
+ * governance and update.
+ *
+ * The stub is written when it's missing and brought current when it's PE's. A
+ * deploy.yml of the builder's own is kept: their app still deploys the old way
+ * until PE swaps it at the publish request.
  *
  * @param {string} root The app's folder.
  * @param {object} options
@@ -88,9 +98,12 @@ export function governance({ dir, answers, tier, app, today = new Date() }) {
  *   the file is already PE's and an edit is just drift).
  * @param {boolean} [options.writeBuilder] Write a starter BUILDER.md when
  *   there's none. Default true; update passes false.
- * @returns {{ written: string[], moved: string[] }} What was written and moved.
+ * @param {Tier} [options.tier] The hosting tier. Only a container app gets the
+ *   deploy stub; without a tier none is written.
+ * @returns {{ written: string[], moved: string[], kept: string[] }} What was
+ *   written, moved, and kept as the builder's own.
  */
-export function writeGovernedFiles(root, { keepOldText, writeBuilder = true }) {
+export function writeGovernedFiles(root, { keepOldText, writeBuilder = true, tier }) {
   /** @type {string[]} */
   const written = [];
   /** @type {string[]} */
@@ -127,7 +140,20 @@ export function writeGovernedFiles(root, { keepOldText, writeBuilder = true }) {
     written.push(codeownersPath);
   }
 
-  return { written, moved };
+  /** @type {string[]} */
+  const kept = [];
+  if (tier === 'container') {
+    const stub = readTemplate('deploy.yml');
+    const current = readIfExists(root, DEPLOY_STUB);
+    if (current !== null && !isDeployStub(current)) {
+      kept.push(DEPLOY_STUB);
+    } else if (current === null || hashOf(current) !== hashOf(stub)) {
+      writeText(root, DEPLOY_STUB, stub);
+      written.push(DEPLOY_STUB);
+    }
+  }
+
+  return { written, moved, kept };
 }
 
 /**
@@ -137,5 +163,5 @@ export function writeGovernedFiles(root, { keepOldText, writeBuilder = true }) {
  * @returns {GovernanceResult} The result.
  */
 function refuse(problems) {
-  return { ok: false, command: 'governance', written: [], moved: [], problems };
+  return { ok: false, command: 'governance', written: [], moved: [], kept: [], problems };
 }

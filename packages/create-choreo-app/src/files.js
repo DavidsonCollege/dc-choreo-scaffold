@@ -1,7 +1,7 @@
 // @ts-check
 // File helpers shared by the subcommands: the package's templates, the
-// governance files and their hashes, CODEOWNERS, the license, and the package's
-// own version.
+// governance files and their hashes, the deploy stub, CODEOWNERS, the license,
+// and the package's own version.
 //
 // Governance files are read and written with LF line endings whatever the
 // checkout, because every app's CI compares them by hash after converting line
@@ -17,6 +17,29 @@ export const BASE_DIR = join(TEMPLATES_DIR, '_base');
 
 /** The files Platform Engineering owns in every app, compared by hash. */
 export const GOVERNED_FILES = ['AGENTS.md', 'CLAUDE.md'];
+
+/**
+ * Where a container app keeps the deploy stub, PE's file that hands every
+ * deploy to the shared workflow. The template keeps it as `_base/deploy.yml`.
+ * A Pages site has none.
+ */
+export const DEPLOY_STUB = '.github/workflows/deploy.yml';
+
+// Every version of PE's stub calls the shared workflow. A deploy.yml that
+// doesn't is the builder's own deploy: it keeps working until PE swaps it at
+// the publish request, so no command here replaces it.
+const SHARED_DEPLOY = /^\s*uses:\s*DavidsonChoreo\/dc-choreo-workflows\/\.github\/workflows\/deploy\.yml@/m;
+
+/**
+ * Whether a deploy.yml is PE's stub, current, older or edited, rather than the
+ * builder's own deploy.
+ *
+ * @param {string} text The file's text.
+ * @returns {boolean} True when it calls PE's shared deploy workflow.
+ */
+export function isDeployStub(text) {
+  return SHARED_DEPLOY.test(text);
+}
 
 /** The first line of the block Platform Engineering manages in CODEOWNERS. */
 export const CODEOWNERS_MARKER = '# Managed by Platform Engineering.';
