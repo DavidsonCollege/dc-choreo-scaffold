@@ -1,0 +1,113 @@
+# CI for dc-choreo-scaffold.
+#
+# test:           the package's unit tests.
+# sync:           the copies this package carries of files that live in
+#                 DavidsonChoreo/dc-choreo-workflows (the passport schema, PE's
+#                 CODEOWNERS block, and the hashes of AGENTS.md and CLAUDE.md)
+#                 still match that repository's main branch.
+# governance-app: a made-up app written by `governance`, checked by the real
+#                 Choreo passport, license and files checks.
+#
+# Actions are pinned to full commit SHAs. No secrets are used.
+
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # The dc-choreo-workflows commit whose check code the governance app runs.
+  # Bump it, by full SHA, when the checks change.
+  CHECKS_REF: 208b9cce4382a62eba8c302bd9f273bde63ccb2e
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: DavidsonChoreo/dc-choreo-workflows
+          ref: main
+          path: workflows
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: The passport schema copy matches
+        run: |
+          cmp packages/create-choreo-app/src/schema/passport-v1.json workflows/schemas/passport/v1.schema.json \
+            || { echo "::error::src/schema/passport-v1.json differs from dc-choreo-workflows. Copy the schema over it."; exit 1; }
+      - name: PE's CODEOWNERS block matches
+        run: |
+          cmp packages/create-choreo-app/templates/_base/CODEOWNERS workflows/canonical/CODEOWNERS \
+            || { echo "::error::templates/_base/CODEOWNERS differs from dc-choreo-workflows canonical/CODEOWNERS."; exit 1; }
+      - name: AGENTS.md and CLAUDE.md are listed in canonical/hashes.json
+        run: |
+          node --input-type=module -e "
+          import { createHash } from 'node:crypto';
+          import { readFileSync } from 'node:fs';
+          const hashes = JSON.parse(readFileSync('workflows/canonical/hashes.json', 'utf8'));
+          let failed = false;
+          for (const name of ['AGENTS.md', 'CLAUDE.md']) {
+            const text = readFileSync('packages/create-choreo-app/templates/_base/' + name, 'utf8').replaceAll('\r\n', '\n');
+            const sha = createHash('sha256').update(text).digest('hex');
+            if (!(hashes[name] ?? []).some((entry) => entry.sha256 === sha)) {
+              console.log('::error::' + name + ' (' + sha + ') is not in dc-choreo-workflows canonical/hashes.json. Add it there first.');
+              failed = true;
+            }
+          }
+          process.exit(failed ? 1 : 0);"
+
+  governance-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: DavidsonChoreo/dc-choreo-workflows
+          ref: ${{ env.CHECKS_REF }}
+          path: checks-src
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Install the checks
+        working-directory: checks-src
+        run: npm ci --omit=dev --no-audit --no-fund --loglevel=error
+      - name: Write a made-up app with governance
+        run: |
+          mkdir "$RUNNER_TEMP/example-app"
+          node packages/create-choreo-app/bin/create-choreo-app.js governance "$RUNNER_TEMP/example-app" \
+            --tier container --answers packages/create-choreo-app/test/fixtures/answers-container.json
+      - name: verify passes
+        run: node packages/create-choreo-app/bin/create-choreo-app.js verify "$RUNNER_TEMP/example-app"
+      - name: The Choreo passport, license and files checks pass
+        working-directory: ${{ runner.temp }}/example-app
+        run: |
+          for check in passport license files; do
+            echo "::group::$check"
+            node "$GITHUB_WORKSPACE/checks-src/checks/cli.js" "$check"
+            echo "::endgroup::"
+          done

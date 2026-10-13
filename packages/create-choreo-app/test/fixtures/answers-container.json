@@ -1,0 +1,32 @@
+{
+  "purpose": "Lets advisers see which made-up practice sessions are open and book a slot for a student.",
+  "app_owners": [
+    { "name": "Dana Example", "email": "daexample@davidson.edu" }
+  ],
+  "business_owner": { "name": "Morgan Example", "email": "moexample@davidson.edu" },
+  "department": "Example Department",
+  "custody": "If the app owners leave, the department head names a successor within 30 days.",
+  "profile": {
+    "door": "interact",
+    "audience": "campus",
+    "clearance": true,
+    "data_classification": "internal",
+    "source": "one-system",
+    "writes": "own-records",
+    "consumption": "web"
+  },
+  "audience_scope": "internal",
+  "brand": "unbranded",
+  "indexable": false,
+  "custom_domain": null,
+  "build_environment": "host-node",
+  "built_with": "davidson-choreo@0.2.0",
+  "risk_tier": "high",
+  "regulations": [],
+  "roles": ["viewer"],
+  "integrations": [],
+  "llm": null,
+  "retention": [
+    { "data": "bookings", "keep_days": 365 }
+  ]
+}

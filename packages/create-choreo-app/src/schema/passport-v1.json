@@ -1,0 +1,378 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/DavidsonChoreo/dc-choreo-workflows/main/schemas/passport/v1.schema.json",
+  "title": "Choreo passport, version 1",
+  "description": "PASSPORT.yml at the root of every repository Choreo hosts. It holds the owner's claims about the app. Platform Engineering approves every change to it, and a change to a field listed in x-ready-call-fields also re-runs the ready call.",
+  "type": "object",
+  "x-ready-call-fields": [
+    "profile.data_classification",
+    "profile.tier",
+    "audience_scope",
+    "brand",
+    "indexable",
+    "custom_domain",
+    "integrations",
+    "llm",
+    "roles",
+    "regulations"
+  ],
+  "required": [
+    "passport",
+    "app",
+    "purpose",
+    "app_owners",
+    "business_owner",
+    "department",
+    "custody",
+    "created",
+    "review",
+    "profile",
+    "audience_scope",
+    "brand",
+    "indexable",
+    "custom_domain",
+    "license",
+    "road",
+    "stack",
+    "scaffolded_with",
+    "build_environment",
+    "built_with",
+    "risk_tier",
+    "regulations",
+    "roles",
+    "integrations",
+    "llm",
+    "retention"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "passport": {
+      "description": "Passport format version.",
+      "const": 1
+    },
+    "app": {
+      "description": "The app's name, which is also its repository name.",
+      "$ref": "#/$defs/slug"
+    },
+    "purpose": {
+      "description": "One paragraph, in the owner's words, of what the app does and for whom.",
+      "type": "string",
+      "minLength": 20
+    },
+    "app_owners": {
+      "description": "The builders. Every app owner gets the renewal reminders.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/person" }
+    },
+    "business_owner": {
+      "description": "The one person accountable for the app outside the build. The business owner can't also be an app owner. JSON Schema can't compare two fields, so the passport check enforces that rule.",
+      "$ref": "#/$defs/person"
+    },
+    "incident_contact": {
+      "description": "Deprecated and optional: Platform Engineering is every app's incident contact, so new passports leave this out. Existing passports may keep it until they drop the line.",
+      "$ref": "#/$defs/person"
+    },
+    "department": {
+      "description": "The department the app belongs to.",
+      "type": "string",
+      "minLength": 2
+    },
+    "custody": {
+      "description": "What happens to the app if its owners leave.",
+      "type": "string",
+      "minLength": 20
+    },
+    "created": {
+      "description": "The date the app was created.",
+      "$ref": "#/$defs/date"
+    },
+    "review": {
+      "description": "The next recertification date, a year after creation or the last review. Bumping it is the recertification.",
+      "$ref": "#/$defs/date"
+    },
+    "profile": {
+      "description": "The pathfinder's answers, verified against the code.",
+      "type": "object",
+      "required": [
+        "door",
+        "driver",
+        "audience",
+        "clearance",
+        "data_classification",
+        "source",
+        "writes",
+        "consumption",
+        "tier"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "door": {
+          "description": "What the app does: people look at data, or people interact with it. The move door returns with the scheduled job tier.",
+          "enum": ["look", "interact"]
+        },
+        "driver": {
+          "description": "A person is always steering a hosted app.",
+          "enum": ["person"]
+        },
+        "audience": {
+          "description": "Who the app is for.",
+          "enum": ["me", "group", "campus", "public"]
+        },
+        "clearance": {
+          "description": "Whether everyone in the audience can already see this data where it lives.",
+          "type": "boolean"
+        },
+        "data_classification": {
+          "description": "The most sensitive class of data the app holds or shows.",
+          "enum": ["public", "internal", "restricted", "confidential"]
+        },
+        "source": {
+          "description": "Where the data comes from.",
+          "enum": ["none", "one-system", "several", "in-system"]
+        },
+        "writes": {
+          "description": "What the app does to data.",
+          "enum": ["none", "own-records", "system-of-record"]
+        },
+        "consumption": {
+          "description": "Where people meet the app.",
+          "enum": ["claude", "dashboard", "web", "system"]
+        },
+        "tier": {
+          "description": "The hosting tier the passport proposes. PE confirms it at go-live.",
+          "enum": ["pages", "container"]
+        }
+      }
+    },
+    "audience_scope": {
+      "description": "College Communications' axis: whether the app faces the campus or the world.",
+      "enum": ["internal", "external"]
+    },
+    "brand": {
+      "description": "Whether the app uses College marks.",
+      "enum": ["branded", "unbranded"]
+    },
+    "indexable": {
+      "description": "Whether search engines may index the app. True on an external app needs a College Communications review.",
+      "type": "boolean"
+    },
+    "custom_domain": {
+      "description": "A custom domain requested at go-live, or null.",
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/hostname" }
+      ]
+    },
+    "license": {
+      "description": "The SPDX identifier of the repository's license. It must match the LICENSE file. Apache-2.0 is the default. The license check allows, flags or blocks it.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9.+-]*$"
+    },
+    "road": {
+      "description": "The paved road uses the Choreo package and Nuxt layer. The other road brings its own stack.",
+      "enum": ["paved", "non-paved"]
+    },
+    "stack": {
+      "description": "The app's stack.",
+      "enum": ["nuxt", "other"]
+    },
+    "scaffolded_with": {
+      "description": "The package version that wrote this repository's governance files.",
+      "type": "string",
+      "pattern": "^@davidson/create-choreo-app@[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "build_environment": {
+      "description": "Where the app is built during development.",
+      "enum": ["host-node", "devcontainer", "ci-only"]
+    },
+    "built_with": {
+      "description": "The AI tool and version used to build the app, such as davidson-choreo@1.0.0. The plugin fills it.",
+      "type": "string",
+      "minLength": 1
+    },
+    "risk_tier": {
+      "description": "Low, medium or high, computed from the profile by the plugin.",
+      "enum": ["low", "medium", "high"]
+    },
+    "regulations": {
+      "description": "Regulations that cover the app's data. Any entry means a conversation with Information Security and Legal before the build.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["ferpa", "glba", "hipaa", "pci"] }
+    },
+    "roles": {
+      "description": "The app's Entra app roles. Every container app defines at least one. A Pages site has none.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9._-]*$"
+      }
+    },
+    "integrations": {
+      "description": "Every platform the app connects to, by name.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/integration" }
+    },
+    "llm": {
+      "description": "The LLM provider the app calls, or null.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["provider", "live_data"],
+          "additionalProperties": false,
+          "properties": {
+            "provider": {
+              "description": "The provider, such as anthropic.",
+              "type": "string",
+              "minLength": 1
+            },
+            "live_data": {
+              "description": "Whether live data enters the prompts.",
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "retention": {
+      "description": "How long the app keeps each kind of data it stores. The hosting module builds storage lifecycle rules from it.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["data", "keep_days"],
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "description": "The kind of data, such as submissions.",
+            "type": "string",
+            "minLength": 1
+          },
+          "keep_days": {
+            "description": "Days to keep it.",
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "description": "A Pages site is public, holds Public data only, and has no login.",
+      "if": {
+        "required": ["profile"],
+        "properties": {
+          "profile": {
+            "required": ["tier"],
+            "properties": { "tier": { "const": "pages" } }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "profile": {
+            "properties": {
+              "audience": { "const": "public" },
+              "data_classification": { "const": "public" }
+            }
+          },
+          "roles": { "maxItems": 0 }
+        }
+      }
+    },
+    {
+      "description": "A container app defines at least one Entra app role.",
+      "if": {
+        "required": ["profile"],
+        "properties": {
+          "profile": {
+            "required": ["tier"],
+            "properties": { "tier": { "const": "container" } }
+          }
+        }
+      },
+      "then": {
+        "properties": { "roles": { "minItems": 1 } }
+      }
+    },
+    {
+      "description": "The paved road is Nuxt.",
+      "if": {
+        "required": ["road"],
+        "properties": { "road": { "const": "paved" } }
+      },
+      "then": {
+        "properties": { "stack": { "const": "nuxt" } }
+      }
+    },
+    {
+      "description": "An app that writes data says how long it keeps it.",
+      "if": {
+        "required": ["profile"],
+        "properties": {
+          "profile": {
+            "required": ["writes"],
+            "properties": { "writes": { "enum": ["own-records", "system-of-record"] } }
+          }
+        }
+      },
+      "then": {
+        "properties": { "retention": { "minItems": 1 } }
+      }
+    }
+  ],
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+    },
+    "date": {
+      "description": "A calendar date, YYYY-MM-DD, written as a quoted string.",
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "hostname": {
+      "type": "string",
+      "pattern": "^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+    },
+    "person": {
+      "type": "object",
+      "required": ["name", "email"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 2 },
+        "email": {
+          "description": "A Davidson address.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._%+-]+@davidson\\.edu$"
+        }
+      }
+    },
+    "integration": {
+      "type": "object",
+      "required": ["platform", "purpose", "data_classification"],
+      "additionalProperties": false,
+      "properties": {
+        "platform": {
+          "description": "The platform the app connects to, by name, such as Slate or Workday. Never a hostname: the repository goes public.",
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "description": "Why the app calls it.",
+          "type": "string",
+          "minLength": 1
+        },
+        "data_classification": {
+          "description": "The most sensitive class of data the app sends there.",
+          "enum": ["public", "internal", "restricted", "confidential"]
+        }
+      }
+    }
+  }
+}
