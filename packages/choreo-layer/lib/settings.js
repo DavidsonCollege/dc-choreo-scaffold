@@ -18,6 +18,8 @@ const PAGES_ORIGIN = 'https://davidsonchoreo.github.io';
  * @property {string} title The default page title.
  * @property {string} baseURL The path the site is served under, such as /my-app/.
  * @property {string | null} siteUrl The site's full address, or null when it isn't known.
+ * @property {string | null} customDomain The passport's custom domain, or null.
+ * @property {string[]} roles The passport's Entra app roles; a Pages site has none.
  */
 
 /**
@@ -48,6 +50,8 @@ export function settingsFrom(passport, env = {}) {
     title: titleFrom(app),
     baseURL: env.NUXT_APP_BASE_URL || (onPagesDomain ? `/${app}/` : '/'),
     siteUrl,
+    customDomain,
+    roles: Array.isArray(passport.roles) ? passport.roles.filter((role) => typeof role === 'string') : [],
   };
 }
 

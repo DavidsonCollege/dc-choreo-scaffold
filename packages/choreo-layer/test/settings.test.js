@@ -73,3 +73,11 @@ test('pages with a parameter are left out of the sitemap', () => {
   ]);
   assert.deepEqual(routes, ['/', '/faq', '/guides', '/guides/start']);
 });
+
+test("the passport's roles and custom domain are carried through", () => {
+  const s = settingsFrom({ ...container, roles: ['viewer', 'registrar'], custom_domain: 'bookings.davidson.edu' });
+  assert.deepEqual(s.roles, ['viewer', 'registrar']);
+  assert.equal(s.customDomain, 'bookings.davidson.edu');
+  assert.deepEqual(settingsFrom(pages).roles, []);
+  assert.equal(settingsFrom(pages).customDomain, null);
+});

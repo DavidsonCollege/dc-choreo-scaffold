@@ -6,16 +6,20 @@
 //   says the app isn't indexable.
 // - Tailwind and the brand tokens.
 // - robots.txt always, and sitemap.xml for an indexable site.
-// - A container app: /health, answered without sign-in, and an
+// - A container app: /health, answered without sign-in; the security guard
+//   on /api (token, role and origin checks, request ids, audit lines, clean
+//   errors); the auto-imported requireUser, requireRole and auditLog; and an
 //   X-Robots-Tag: noindex header when it isn't indexable.
 // - A build whose kind doesn't match the tier stops with an explanation.
 //
-// The decisions themselves are in lib/settings.js, which the tests check.
+// The decisions themselves are in lib/settings.js and lib/security.js, which
+// the tests check.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { addServerHandler, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule } from '@nuxt/kit'
+import { addServerHandler, addServerImports, addServerPlugin, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, useLogger } from '@nuxt/kit'
 import tailwindcss from '@tailwindcss/vite'
 import { parse } from 'yaml'
+import { corsProblems, outsideGuard } from './security.js'
 import { robotsTxt, settingsFrom, sitemapXml, staticRoutes } from './settings.js'
 
 export default defineNuxtModule({
@@ -57,6 +61,14 @@ export default defineNuxtModule({
         config.prerender ||= {}
         config.prerender.routes = [...(config.prerender.routes ?? []), '/robots.txt', ...(settings.indexable ? ['/sitemap.xml'] : [])]
       }
+      if (settings.tier === 'container') {
+        const security = { app: settings.app, roles: settings.roles, indexable: settings.indexable, customDomain: settings.customDomain }
+        config.virtual['#choreo/security'] = () => `export default ${JSON.stringify(security)}`
+        // Nuxt has set its own error handler by now. Ours goes first: it
+        // answers /api errors itself and passes page errors on to Nuxt's.
+        const handlers = config.errorHandler === undefined ? [] : [config.errorHandler].flat()
+        config.errorHandler = [resolve('../runtime/security/error'), ...handlers]
+      }
     })
     addTypeTemplate({
       filename: 'types/choreo-virtual.d.ts',
@@ -68,7 +80,60 @@ export default defineNuxtModule({
     // A container app.
     if (settings.tier === 'container') {
       addServerHandler({ route: '/health', handler: resolve('../runtime/health') })
-      if (!settings.indexable) addServerHandler({ middleware: true, handler: resolve('../runtime/noindex') })
+
+      // Filled in at run time from NUXT_CHOREO_ENTRA_TENANT_ID and _CLIENT_ID,
+      // which the platform sets. Empty, /api answers 503.
+      nuxt.options.runtimeConfig.choreo = { entra: { tenantId: '', clientId: '' } }
+      addServerHandler({ middleware: true, handler: resolve('../runtime/security/middleware') })
+      addServerPlugin(resolve('../runtime/security/plugin'))
+      addServerImports(['requireUser', 'requireRole', 'auditLog'].map((name) => ({ name, from: resolve('../runtime/security/utils') })))
+      addTypeTemplate({
+        filename: 'types/choreo-security.d.ts',
+        getContents: () => [
+          `import type { GuardResult, User } from ${JSON.stringify(resolve('./security.js'))}`,
+          'declare global {',
+          '  /** One of the Entra app roles in PASSPORT.yml. */',
+          `  type ChoreoRole = ${settings.roles.map((role) => JSON.stringify(role)).join(' | ') || 'never'}`,
+          '}',
+          "declare module 'h3' {",
+          '  interface H3EventContext {',
+          '    choreo?: { requestId: string, check?: Promise<GuardResult>, user?: User, denied?: boolean }',
+          '  }',
+          '}',
+          'export {}',
+          '',
+        ].join('\n'),
+      }, { nuxt: true, nitro: true })
+
+      // Server code outside the /api guard, and CORS turned on: a warning in
+      // `nuxt dev` and `nuxt build`, never a failed build. The app is still
+      // incubating; the code is reviewed at the publish request.
+      const logger = useLogger('choreo')
+      const warned = new Set<string>()
+      let serverComponents: string[] = []
+      let serverPages: string[] = []
+      nuxt.hook('components:extend', (components) => {
+        serverComponents = components.filter((c) => c.mode === 'server' && !c.filePath.includes('node_modules')).map((c) => c.filePath)
+      })
+      nuxt.hook('pages:resolved', (pages) => {
+        const collect = (list: typeof pages): string[] => list.flatMap((page) => [...(page.mode === 'server' && page.file ? [page.file] : []), ...collect(page.children ?? [])])
+        serverPages = collect(pages)
+      })
+      nuxt.hook('nitro:build:before', (nitro) => {
+        const report = () => {
+          const warnings = [
+            ...outsideGuard({ handlers: nitro.scannedHandlers, serverComponents: [...serverComponents, ...serverPages], rootDir: nuxt.options.rootDir }),
+            ...corsProblems(nitro.options.routeRules as Record<string, { cors?: boolean, headers?: Record<string, string> }>),
+          ]
+          for (const warning of warnings) {
+            if (warned.has(warning)) continue
+            warned.add(warning)
+            logger.warn(warning)
+          }
+        }
+        report()
+        if (nuxt.options.dev) nitro.hooks.hook('dev:reload', report)
+      })
     }
 
     // The kind of build has to match the tier. This hook runs only for a real

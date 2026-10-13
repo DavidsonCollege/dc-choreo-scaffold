@@ -53,4 +53,11 @@ export function errorResponse(
 export function guard(
   request: { method: string, path: string, headers: Record<string, string | undefined> },
   deps: { entra: { tenantId: string, clientId: string }, roles: string[], customDomain: string | null, keys: Keys | null, devUser?: User },
+  options?: { anyPath?: boolean },
 ): Promise<GuardResult>
+export function outsideGuard(found: {
+  handlers: { route?: string, middleware?: boolean, handler: string, env?: string | string[] }[]
+  serverComponents: string[]
+  rootDir: string
+}): string[]
+export function corsProblems(routeRules: Record<string, { cors?: boolean, headers?: Record<string, string> }>): string[]

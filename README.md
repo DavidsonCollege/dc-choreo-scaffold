@@ -33,6 +33,7 @@ node packages/create-choreo-app/bin/create-choreo-app.js doctor
 - A Pages site without a custom domain is built for `https://davidsonchoreo.github.io/<app>/`.
 - `robots.txt` always allows crawling; an indexable site also gets `sitemap.xml`.
 - A container app gets `/health`, answered without sign-in, and an `X-Robots-Tag: noindex` header when it isn't indexable.
+- A container app gets the security guard on `/api`, and `requireUser`, `requireRole` and `auditLog` for its handlers. How to use them: [packages/choreo-layer/README.md](packages/choreo-layer/README.md).
 - Tailwind, the brand tokens, and the shared header and footer. The brand colors are placeholders until College Communications' values are in.
 
 ## The governance files

@@ -9,8 +9,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SignJWT, createLocalJWKSet, errors, exportJWK, generateKeyPair } from 'jose';
 import {
-  TokenRejected, auditRecord, checkOrigin, devUserFrom, errorResponse, guard, isApiPath,
-  microsoftKeys, redact, requestIdFrom, userFrom, verifyIdToken,
+  TokenRejected, auditRecord, checkOrigin, corsProblems, devUserFrom, errorResponse, guard, isApiPath,
+  microsoftKeys, outsideGuard, redact, requestIdFrom, userFrom, verifyIdToken,
 } from '../lib/security.js';
 
 const TENANT = '11111111-2222-3333-4444-555555555555';
@@ -242,6 +242,12 @@ test('pages are skipped; /api is guarded', async () => {
   assert.equal((await guard(request(), deps())).outcome, 'deny');
 });
 
+test('anyPath checks a route outside /api too, for requireUser', async () => {
+  assert.deepEqual(await guard(request({ path: '/export' }), deps(), { anyPath: true }), { outcome: 'deny', status: 401, reason: 'no-token' });
+  const allowed = await guard(request({ path: '/export', headers: { 'x-ms-token-aad-id-token': await sign() } }), deps(), { anyPath: true });
+  assert.equal(allowed.outcome, 'allow');
+});
+
 test('an app with no Entra settings answers /api with 503', async () => {
   const result = await guard(request(), deps({ entra: { tenantId: '', clientId: '' }, keys: null }));
   assert.deepEqual(result, { outcome: 'deny', status: 503, reason: 'not-configured' });
@@ -286,4 +292,43 @@ test('the dev user stands in for the token, still subject to roles and origin', 
   assert.equal(allowed.user.name, 'Dana Example');
   assert.deepEqual(await guard(request(), deps({ ...unconfigured, devUser: devUserFrom(['viewer'], 'none') })), { outcome: 'deny', status: 403, reason: 'no-role' });
   assert.deepEqual(await guard(request({ method: 'POST', headers: { origin: 'https://evil.example' } }), deps({ ...unconfigured, devUser: devUserFrom(['viewer'], undefined) })), { outcome: 'deny', status: 403, reason: 'cross-origin' });
+});
+
+// --- outsideGuard and corsProblems -------------------------------------------
+
+test('server code outside the /api guard gets one warning per file', () => {
+  const root = 'C:\\apps\\example-app';
+  const warnings = outsideGuard({
+    rootDir: root,
+    handlers: [
+      { route: '/api/grades', method: 'get', handler: 'C:/apps/example-app/server/api/grades.get.ts' },
+      { route: '/export', method: 'get', handler: 'C:/apps/example-app/server/routes/export.get.ts' },
+      { middleware: true, handler: 'C:/apps/example-app/server/middleware/log.ts' },
+      { route: '/debug', env: 'dev', handler: 'C:/apps/example-app/server/routes/debug.dev.ts' },
+      { route: '/seed', env: ['dev', 'prerender'], handler: 'C:/apps/example-app/server/routes/seed.ts' },
+      { middleware: true, handler: 'C:/apps/example-app/server/middleware/trace.dev.ts' },
+    ],
+    serverComponents: ['C:/apps/example-app/app/components/Grades.server.vue'],
+  });
+  assert.equal(warnings.length, 3);
+  assert.match(warnings[0], /^server\/routes\/export\.get\.ts answers \/export, outside \/api/);
+  assert.match(warnings[1], /^server\/middleware\/log\.ts is server middleware/);
+  assert.match(warnings[2], /^app\/components\/Grades\.server\.vue is a server component/);
+  for (const warning of warnings) assert.match(warning, /flagged for review at the publish request/);
+});
+
+test('an app with only /api routes gets no warnings', () => {
+  assert.deepEqual(outsideGuard({ rootDir: '/app', handlers: [{ route: '/api/x', handler: '/app/server/api/x.ts' }], serverComponents: [] }), []);
+});
+
+test('route rules that turn on CORS are warned about', () => {
+  const warnings = corsProblems({
+    '/api/**': { cors: true },
+    '/feed': { headers: { 'Access-Control-Allow-Origin': 'https://other.example' } },
+    '/static/**': { headers: { 'cache-control': 'max-age=60' } },
+  });
+  assert.equal(warnings.length, 2);
+  assert.match(warnings[0], /\/api\/\*\* turns on CORS/);
+  assert.match(warnings[1], /\/feed turns on CORS/);
+  assert.deepEqual(corsProblems({}), []);
 });
