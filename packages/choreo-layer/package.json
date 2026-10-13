@@ -19,6 +19,7 @@
     "@nuxt/kit": "4.6.1",
     "@tailwindcss/vite": "4.3.3",
     "h3": "1.15.11",
+    "jose": "6.2.12",
     "tailwindcss": "4.3.3",
     "yaml": "2.9.1"
   }
