@@ -5,7 +5,7 @@ The Choreo paved road for Davidson College builders, run by Technology & Innovat
 - `@davidson/create-choreo-app`, the command line that starts a hosted app and keeps Platform Engineering's files in it current
 - `@davidson/choreo-layer`, the shared Nuxt layer every paved-road app extends
 
-Neither is released yet. Releases will be GitHub Releases in this repository, with the packed packages attached; there's no npm registry. The repository is public so builders can download them without signing in.
+Both are released together, with one version, as GitHub Releases in this repository: the packed packages are attached, and each is attested, so anyone can check it was built by this repository's release workflow. There's no npm registry. The repository is public so builders can download them without signing in.
 
 ## The command line
 
@@ -19,11 +19,19 @@ The Choreo plugin runs it for the builder. It never asks a question, `--json` pr
 | `doctor` | Checks the laptop: Node, npm, git, the GitHub CLI and its sign-in, and reaching npm and GitHub |
 | `create <name> --tier pages\|container --answers answers.json` | Starts a paved-road Nuxt app: the template, the passport and Platform Engineering's files |
 
-Until the first release, run it from a clone:
+To run it yourself, download a release, check it was built here, and run it with `npx` (replace `0.1.0` with the version you want):
 
 ```
-node packages/create-choreo-app/bin/create-choreo-app.js doctor
+gh release download v0.1.0 -R DavidsonCollege/dc-choreo-scaffold -p 'davidson-create-choreo-app-*.tgz'
+gh attestation verify davidson-create-choreo-app-0.1.0.tgz --repo DavidsonCollege/dc-choreo-scaffold
+npx --yes ./davidson-create-choreo-app-0.1.0.tgz doctor
 ```
+
+To work on the package itself, run it from a clone: `node packages/create-choreo-app/bin/create-choreo-app.js doctor`.
+
+## Releasing
+
+Set the same new version in both packages' `package.json`, merge that to `main`, then push a tag `v<version>` on the merged commit. `.github/workflows/release.yml` checks the tag matches both versions, runs the tests, packs both packages, attests them, and creates the release. The layer's release URL in `packages/create-choreo-app/src/manifest.json` follows the same version, so apps made with a version install that version's layer.
 
 ## The layer
 
