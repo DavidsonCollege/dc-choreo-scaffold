@@ -242,6 +242,12 @@ test('pages are skipped; /api is guarded', async () => {
   assert.equal((await guard(request(), deps())).outcome, 'deny');
 });
 
+test('anyPath checks a route outside /api too, for requireUser', async () => {
+  assert.deepEqual(await guard(request({ path: '/export' }), deps(), { anyPath: true }), { outcome: 'deny', status: 401, reason: 'no-token' });
+  const allowed = await guard(request({ path: '/export', headers: { 'x-ms-token-aad-id-token': await sign() } }), deps(), { anyPath: true });
+  assert.equal(allowed.outcome, 'allow');
+});
+
 test('an app with no Entra settings answers /api with 503', async () => {
   const result = await guard(request(), deps({ entra: { tenantId: '', clientId: '' }, keys: null }));
   assert.deepEqual(result, { outcome: 'deny', status: 503, reason: 'not-configured' });

@@ -53,4 +53,5 @@ export function errorResponse(
 export function guard(
   request: { method: string, path: string, headers: Record<string, string | undefined> },
   deps: { entra: { tenantId: string, clientId: string }, roles: string[], customDomain: string | null, keys: Keys | null, devUser?: User },
+  options?: { anyPath?: boolean },
 ): Promise<GuardResult>

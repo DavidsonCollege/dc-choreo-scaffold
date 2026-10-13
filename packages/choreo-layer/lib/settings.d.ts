@@ -7,6 +7,8 @@ export interface Settings {
   title: string
   baseURL: string
   siteUrl: string | null
+  customDomain: string | null
+  roles: string[]
 }
 
 export function settingsFrom(passport: Record<string, any>, env?: Record<string, string | undefined>): Settings

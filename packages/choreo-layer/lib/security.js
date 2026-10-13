@@ -340,10 +340,13 @@ export function errorResponse({ statusCode, message }, requestId, indexable) {
  * @param {string | null} deps.customDomain The passport's custom domain.
  * @param {Parameters<typeof jwtVerify>[1] | null} deps.keys Microsoft's keys, or null when Entra isn't set up.
  * @param {User} [deps.devUser] The dev user, only ever passed in `nuxt dev`.
+ * @param {object} [options]
+ * @param {boolean} [options.anyPath] Check the request whatever its path, for
+ *   requireUser called from a route outside /api.
  * @returns {Promise<GuardResult>} Skip (not /api), allow with the user, or deny with a status and reason.
  */
-export async function guard({ method, path, headers }, { entra, roles, customDomain, keys, devUser }) {
-  if (!isApiPath(path)) return { outcome: 'skip' };
+export async function guard({ method, path, headers }, { entra, roles, customDomain, keys, devUser }, { anyPath = false } = {}) {
+  if (!anyPath && !isApiPath(path)) return { outcome: 'skip' };
 
   const configured = GUID.test(entra.tenantId) && GUID.test(entra.clientId) && keys !== null;
   if (!devUser && !configured) return { outcome: 'deny', status: 503, reason: 'not-configured' };
