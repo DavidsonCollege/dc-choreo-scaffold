@@ -24,8 +24,10 @@ To run it yourself, download a release, check it was built here, and run it with
 ```
 gh release download v0.1.0 -R DavidsonCollege/dc-choreo-scaffold -p 'davidson-create-choreo-app-*.tgz'
 gh attestation verify davidson-create-choreo-app-0.1.0.tgz --repo DavidsonCollege/dc-choreo-scaffold
-npx --yes ./davidson-create-choreo-app-0.1.0.tgz doctor
+npx --yes --package ./davidson-create-choreo-app-0.1.0.tgz create-choreo-app doctor
 ```
+
+Name the file with `--package` and the command after it. The shorter `npx <file> doctor` silently does nothing when run inside a folder that has its own `package.json`.
 
 To work on the package itself, run it from a clone: `node packages/create-choreo-app/bin/create-choreo-app.js doctor`.
 

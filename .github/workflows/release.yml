@@ -11,7 +11,7 @@
 # There's no npm registry. Builders run the command line from the release:
 #   gh release download vX.Y.Z -R DavidsonCollege/dc-choreo-scaffold -p 'davidson-create-choreo-app-*.tgz'
 #   gh attestation verify davidson-create-choreo-app-X.Y.Z.tgz --repo DavidsonCollege/dc-choreo-scaffold
-#   npx --yes ./davidson-create-choreo-app-X.Y.Z.tgz doctor
+#   npx --yes --package ./davidson-create-choreo-app-X.Y.Z.tgz create-choreo-app doctor
 # and apps install the layer from its release URL (create-choreo-app's manifest.json).
 #
 # Permissions, on the job only:
@@ -89,7 +89,7 @@ jobs:
           \`\`\`
           gh release download ${TAG} -R ${GITHUB_REPOSITORY} -p 'davidson-create-choreo-app-*.tgz'
           gh attestation verify davidson-create-choreo-app-${version}.tgz --repo ${GITHUB_REPOSITORY}
-          npx --yes ./davidson-create-choreo-app-${version}.tgz doctor
+          npx --yes --package ./davidson-create-choreo-app-${version}.tgz create-choreo-app doctor
           \`\`\`
 
           Apps made with this version install the layer from this release.
