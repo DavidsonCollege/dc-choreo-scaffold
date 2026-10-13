@@ -1,0 +1,6 @@
+// knip, which the Choreo checks run, reports dependencies nothing uses.
+// vue-tsc is used: `npm run typecheck` runs it through `nuxt typecheck`, which
+// knip can't see. Keep it.
+{
+  "ignoreDependencies": ["vue-tsc"]
+}

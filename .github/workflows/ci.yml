@@ -7,6 +7,9 @@
 #                 still match that repository's main branch.
 # governance-app: a made-up app written by `governance`, checked by the real
 #                 Choreo passport, license and files checks.
+# test-app:       a made-up paved-road app written by `create` for each tier,
+#                 with the layer installed from its packed file, built and run
+#                 through every Choreo check an app faces at the publish request.
 #
 # Actions are pinned to full commit SHAs. No secrets are used.
 
@@ -21,9 +24,9 @@ permissions:
   contents: read
 
 env:
-  # The dc-choreo-workflows commit whose check code the governance app runs.
-  # Bump it, by full SHA, when the checks change.
-  CHECKS_REF: 208b9cce4382a62eba8c302bd9f273bde63ccb2e
+  # The dc-choreo-workflows commit whose check code the test apps run. Bump it,
+  # by full SHA, when the checks change.
+  CHECKS_REF: 87314e28031e85a154707987d59f7d5c15cde677
 
 jobs:
   test:
@@ -111,3 +114,126 @@ jobs:
             node "$GITHUB_WORKSPACE/checks-src/checks/cli.js" "$check"
             echo "::endgroup::"
           done
+
+  test-app:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { tier: container, answers: answers-container.json, indexable: "false" }
+          - { tier: pages, answers: answers-pages.json, indexable: "true" }
+          - { tier: pages, answers: answers-pages.json, indexable: "false" }
+    name: test-app (${{ matrix.tier }}, indexable ${{ matrix.indexable }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: DavidsonChoreo/dc-choreo-workflows
+          ref: ${{ env.CHECKS_REF }}
+          path: checks-src
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Install the checks
+        working-directory: checks-src
+        run: npm ci --omit=dev --no-audit --no-fund --loglevel=error
+      - name: Install gitleaks, as the secrets check does
+        env:
+          VERSION: 8.30.1
+          SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
+          echo "${SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar xzf gitleaks.tar.gz gitleaks
+
+      - name: Pack the layer
+        run: |
+          mkdir -p "$RUNNER_TEMP/apps"
+          cd packages/choreo-layer
+          npm pack --pack-destination "$RUNNER_TEMP/apps"
+      - name: Write a made-up app with create
+        env:
+          TIER: ${{ matrix.tier }}
+          ANSWERS: ${{ matrix.answers }}
+          INDEXABLE: ${{ matrix.indexable }}
+        run: |
+          node -e "
+          const answers = require('./packages/create-choreo-app/test/fixtures/' + process.env.ANSWERS);
+          answers.indexable = process.env.INDEXABLE === 'true';
+          require('fs').writeFileSync(process.env.RUNNER_TEMP + '/answers.json', JSON.stringify(answers));"
+          cd "$RUNNER_TEMP/apps"
+          node "$GITHUB_WORKSPACE/packages/create-choreo-app/bin/create-choreo-app.js" create example-app \
+            --tier "$TIER" --answers "$RUNNER_TEMP/answers.json"
+      - name: Point the layer at its packed file, the only change from what create wrote
+        working-directory: ${{ runner.temp }}/apps/example-app
+        run: |
+          node -e "
+          const fs = require('fs');
+          const written = fs.readFileSync('package.json', 'utf8');
+          const pkg = JSON.parse(written);
+          const tgz = fs.readdirSync('..').find((f) => /^davidson-choreo-layer-.*\.tgz$/.test(f));
+          pkg.dependencies['@davidson/choreo-layer'] = 'file:../' + tgz;
+          const changed = Object.keys(pkg.dependencies).filter((k) => pkg.dependencies[k] !== JSON.parse(written).dependencies[k]);
+          if (changed.join() !== '@davidson/choreo-layer') { console.log('::error::Unexpected change: ' + changed); process.exit(1); }
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');"
+      - name: Install, and start the git history the secrets check scans
+        working-directory: ${{ runner.temp }}/apps/example-app
+        run: |
+          npm install --no-audit --no-fund
+          git init -q
+          git add -A
+          git -c user.name="Choreo CI" -c user.email="ci@example.invalid" commit -q -m "Start the app from create-choreo-app"
+      - name: verify, lint and type-check
+        working-directory: ${{ runner.temp }}/apps/example-app
+        run: |
+          node "$GITHUB_WORKSPACE/packages/create-choreo-app/bin/create-choreo-app.js" verify .
+          npm run lint
+          npm run typecheck
+
+      - name: Every Choreo check passes
+        working-directory: ${{ runner.temp }}/apps/example-app
+        run: |
+          # The layer isn't released yet, so the registry lookup can't find it.
+          # Listing it as already present skips only that lookup; every other
+          # dependency is still checked.
+          echo '{"dependencies":{"@davidson/choreo-layer":"released with this package"}}' > "$RUNNER_TEMP/layer-only.json"
+          export BASE_PACKAGE_JSON="$RUNNER_TEMP/layer-only.json"
+          CHECKS="$GITHUB_WORKSPACE/checks-src/checks/cli.js"
+          failed=""
+          # Runs one check. "strict" also fails on a warning, because the
+          # indexing and accessibility checks turn "Chrome missing" or "the
+          # server didn't start" into a warning that would otherwise pass.
+          # "report" shows the result without failing the job.
+          check() {
+            echo "::group::$1"
+            out=$(node "$CHECKS" "$1" 2>&1) && code=0 || code=$?
+            echo "$out"
+            echo "::endgroup::"
+            if [ "$code" -ne 0 ] && [ "${2:-}" = report ]; then echo "::warning::The $1 check failed; reported only, see DavidsonCollege/platform-engineering#84."
+            elif [ "$code" -ne 0 ]; then failed="$failed $1"; fi
+            if [ "${2:-}" = strict ] && echo "$out" | grep -q '::warning'; then failed="$failed $1(warning)"; fi
+          }
+          for name in passport license files tier code dependencies; do check "$name"; done
+
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --exit-code 0 \
+            --report-format json --report-path "$RUNNER_TEMP/gitleaks.json" .
+          GITLEAKS_REPORT="$RUNNER_TEMP/gitleaks.json" check secrets
+
+          npm ci --no-audit --no-fund
+          # Report only, for now: the audit fails every Nuxt app on build-time
+          # findings with no published fix (DavidsonCollege/platform-engineering#84).
+          check audit report
+          "$GITHUB_WORKSPACE/checks-src/node_modules/.bin/knip" --dependencies --reporter json --no-exit-code \
+            > "$RUNNER_TEMP/knip.json" 2>/dev/null || rm -f "$RUNNER_TEMP/knip.json"
+          KNIP_REPORT="$RUNNER_TEMP/knip.json" check unused
+
+          npm run build
+          check indexing strict
+          check accessibility strict
+
+          if [ -n "$failed" ]; then echo "::error::Failed:$failed"; exit 1; fi

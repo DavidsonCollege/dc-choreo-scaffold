@@ -101,8 +101,10 @@ export function create({ name, tier, answers, parent = '.', force = false, today
 }
 
 /**
- * The app's package.json: the tier's build script, the Node range, and the
- * manifest's exact versions, with the layer from its release.
+ * The app's package.json: the tier's build script, the Node range, the
+ * manifest's exact versions with the layer from its release, and the
+ * manifest's overrides, which force fixed versions of packages deep in Nuxt's
+ * tree (the reason for each is in manifest.json).
  *
  * @param {string} name The app's name.
  * @param {Tier} tier The hosting tier.
@@ -127,6 +129,7 @@ export function packageJson(name, tier) {
       ...MANIFEST.dependencies,
     },
     devDependencies: { ...MANIFEST.devDependencies },
+    overrides: { ...MANIFEST.overrides },
   };
 }
 

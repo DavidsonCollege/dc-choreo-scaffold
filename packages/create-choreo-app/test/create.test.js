@@ -23,7 +23,7 @@ const make = (tier, extra = {}) => {
 const COMMON = [
   '.gitattributes', '.github/CODEOWNERS', '.github/dependabot.yml', '.gitignore', '.npmrc', '.nvmrc',
   'AGENTS.md', 'BUILDER.md', 'CLAUDE.md', 'LICENSE', 'PASSPORT.yml',
-  'app/app.vue', 'app/pages/index.vue', 'eslint.config.mjs', 'nuxt.config.ts', 'package.json', 'tsconfig.json',
+  'app/app.vue', 'app/pages/index.vue', 'eslint.config.mjs', 'knip.jsonc', 'nuxt.config.ts', 'package.json', 'tsconfig.json',
 ];
 
 test('a container app gets the template, the Containerfile and every governance file', () => {
@@ -48,6 +48,8 @@ test('package.json has the tier build script, exact versions and the layer relea
   assert.equal(container.engines.node, MANIFEST.node.engines);
   assert.equal(container.dependencies['@davidson/choreo-layer'], layerRelease(PACKAGE_VERSION));
   assert.match(layerRelease('1.2.3'), /\/releases\/download\/v1\.2\.3\/davidson-choreo-layer-1\.2\.3\.tgz$/);
+  assert.deepEqual(container.overrides, MANIFEST.overrides);
+  assert.equal('vue-router' in container.dependencies, false);
   for (const [name, version] of Object.entries({ ...MANIFEST.dependencies, ...MANIFEST.devDependencies })) {
     assert.equal(container.dependencies[name] ?? container.devDependencies[name], version, name);
   }

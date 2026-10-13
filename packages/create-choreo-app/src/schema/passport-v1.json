@@ -197,10 +197,10 @@
       "enum": ["low", "medium", "high"]
     },
     "regulations": {
-      "description": "Regulations that cover the app's data. Any entry means a conversation with Information Security and Legal before the build.",
+      "description": "Regulations that cover the app's data, from item 8.1 of Information Security's standard. Any entry means a conversation with Information Security and Legal before the build.",
       "type": "array",
       "uniqueItems": true,
-      "items": { "enum": ["ferpa", "glba", "hipaa", "pci"] }
+      "items": { "enum": ["ferpa", "glba", "irs-1075", "pci", "gdpr", "hipaa", "hitech", "nc-itpa", "can-spam", "tcpa"] }
     },
     "roles": {
       "description": "The app's Entra app roles. Every container app defines at least one. A Pages site has none.",
