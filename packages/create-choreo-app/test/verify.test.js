@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { governance } from '../src/governance.js';
 import { verify } from '../src/verify.js';
 import { buildPassport, toYaml } from '../src/passport.js';
-import { MANIFEST } from '../src/files.js';
+import { MANIFEST, PACKAGE_VERSION } from '../src/files.js';
 import { answers, fixture, put, read, tmpApp } from './helpers.js';
 
 const today = new Date(2026, 9, 12);
@@ -29,7 +29,7 @@ function governed() {
 function paved(tier = 'container') {
   const dir = governed();
   const file = tier === 'pages' ? 'answers-pages.json' : 'answers-container.json';
-  const built = buildPassport({ answers: answers(file), app: 'example-app', tier, road: 'paved', version: '0.1.0', today });
+  const built = buildPassport({ answers: answers(file), app: 'example-app', tier, road: 'paved', version: PACKAGE_VERSION, today });
   put(dir, 'PASSPORT.yml', toYaml(built.passport));
   put(dir, 'package.json', JSON.stringify({
     name: 'example-app',
