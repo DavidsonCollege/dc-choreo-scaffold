@@ -65,3 +65,17 @@ test('--help prints the usage and exits 0', () => {
   assert.equal(code, 0);
   assert.match(stdout, /^Usage:/m);
 });
+
+test('create with --json writes the app and returns the next steps', () => {
+  const where = tmpApp('parent');
+  const result = spawnSync(process.execPath, [BIN, 'create', 'example-app', '--tier', 'container', '--answers', ANSWERS, '--json'], { cwd: where, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stdout);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.ok, true);
+  assert.ok(parsed.written.includes('Containerfile'));
+  assert.equal(parsed.next[1], 'npm install');
+});
+
+test('create without a name is a usage mistake, exit 2', () => {
+  assert.equal(cli('create', '--tier', 'pages', '--answers', ANSWERS).code, 2);
+});
