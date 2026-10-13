@@ -78,6 +78,7 @@ Debug and test routes go in files ending in `.dev.ts`, such as `server/api/seed.
 ### Don'ts
 
 - Never put a token, password or key in a URL, a log line, an error message or an audit entry.
+- Never log request headers. On a hosted app, the `X-MS-TOKEN-*` headers carry the person's sign-in tokens, and a log of every header would copy them into the platform's logs. To debug a request, use its request id and the audit lines the layer writes.
 - Don't put personal data, request bodies or tokens in `auditLog`. Name the action and the resource.
 - Don't change the layer's security settings in `nuxt.config.ts`. Ask Platform Engineering if the app needs something different.
 
