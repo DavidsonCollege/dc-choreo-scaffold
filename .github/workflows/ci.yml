@@ -26,7 +26,7 @@ permissions:
 env:
   # The dc-choreo-workflows commit whose check code the test apps run. Bump it,
   # by full SHA, when the checks change.
-  CHECKS_REF: 87314e28031e85a154707987d59f7d5c15cde677
+  CHECKS_REF: 12749e9b75ea2d89e5327ee7ec2584b46b7bd89b
 
 jobs:
   test:
