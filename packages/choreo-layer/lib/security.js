@@ -378,3 +378,64 @@ export async function guard({ method, path, headers }, { entra, roles, customDom
   if (user.roles.length === 0) return { outcome: 'deny', status: 403, reason: 'no-role' };
   return { outcome: 'allow', user };
 }
+
+// Where a warning says the code will be looked at.
+const REVIEW_NOTE = 'It will be flagged for review at the publish request.';
+
+// A dev-only file, which Nitro leaves out of production builds.
+const DEV_ONLY = /\.dev\.[A-Za-z]+$/;
+
+/**
+ * Warnings for a container app's server code that sits outside the layer's
+ * /api guard: routes outside /api, app server middleware, and server
+ * components. They never stop a build: the app is still incubating, and the
+ * code is reviewed at the publish request.
+ *
+ * @param {object} found
+ * @param {{ route?: string, middleware?: boolean, handler: string, env?: string }[]} found.handlers
+ *   The app's server files as Nitro scanned them.
+ * @param {string[]} found.serverComponents Paths of the app's server components and server pages.
+ * @param {string} found.rootDir The app's folder.
+ * @returns {string[]} One plain-language warning per file.
+ */
+export function outsideGuard({ handlers, serverComponents, rootDir }) {
+  const root = `${rootDir.replaceAll('\\', '/').replace(/\/$/, '')}/`;
+  const local = (/** @type {string} */ path) => {
+    const forward = path.replaceAll('\\', '/');
+    return forward.startsWith(root) ? forward.slice(root.length) : forward;
+  };
+  /** @type {string[]} */
+  const warnings = [];
+  for (const handler of handlers) {
+    if (handler.env === 'dev' || DEV_ONLY.test(handler.handler)) continue;
+    const file = local(handler.handler);
+    if (handler.middleware || !handler.route) {
+      warnings.push(`${file} is server middleware, which runs before the layer's sign-in check on every request. It must not return data or answer requests itself; put data behind server/api/ routes that call requireUser or requireRole. ${REVIEW_NOTE}`);
+    } else if (!isApiPath(handler.route)) {
+      warnings.push(`${file} answers ${handler.route}, outside /api, so the layer's sign-in check doesn't cover it. Move it under server/api/, or call requireUser or requireRole in it, or ask Platform Engineering. ${REVIEW_NOTE}`);
+    }
+  }
+  for (const component of serverComponents) {
+    warnings.push(`${local(component)} is a server component, which Nuxt serves outside /api and the layer's sign-in check. Fetch data through server/api/ instead. ${REVIEW_NOTE}`);
+  }
+  return warnings;
+}
+
+/**
+ * Warnings for route rules that open the app to other websites (CORS). A
+ * Choreo app answers only its own pages, and the layer never sets CORS headers.
+ *
+ * @param {Record<string, { cors?: boolean, headers?: Record<string, string> }>} routeRules The app's route rules.
+ * @returns {string[]} One warning per rule that turns CORS on.
+ */
+export function corsProblems(routeRules) {
+  /** @type {string[]} */
+  const warnings = [];
+  for (const [pattern, rule] of Object.entries(routeRules ?? {})) {
+    const header = Object.keys(rule?.headers ?? {}).some((name) => name.toLowerCase() === 'access-control-allow-origin');
+    if (rule?.cors === true || header) {
+      warnings.push(`The route rule for ${pattern} turns on CORS, so other websites could call the app from a signed-in person's browser. A Choreo app answers only its own pages; remove it, or ask Platform Engineering.`);
+    }
+  }
+  return warnings;
+}
