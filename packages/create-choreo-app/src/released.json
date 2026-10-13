@@ -3,5 +3,6 @@
   "AGENTS.md": [
     { "version": 1, "sha256": "50208364e0d0507c7207d0de87423f97c918e042c51ed25c6b6bcb634e4e9e2d", "from": "DavidsonCollege/dc-choreo-scaffold@46f1939" }
   ],
-  "CLAUDE.md": []
+  "CLAUDE.md": [],
+  ".github/workflows/deploy.yml": []
 }

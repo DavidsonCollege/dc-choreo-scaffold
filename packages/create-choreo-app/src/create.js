@@ -78,7 +78,7 @@ export function create({ name, tier, answers, parent = '.', force = false, today
   writeText(dir, '.github/dependabot.yml', dependabot(tier));
   written.push('package.json', '.nvmrc', '.github/dependabot.yml');
 
-  written.push(...writeGovernedFiles(dir, { keepOldText: false }).written);
+  written.push(...writeGovernedFiles(dir, { keepOldText: false, tier }).written);
   writeText(dir, 'LICENSE', readTemplate('LICENSE'));
   writeText(dir, 'PASSPORT.yml', toYaml(built.passport));
   written.push('LICENSE', 'PASSPORT.yml');

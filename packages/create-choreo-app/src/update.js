@@ -3,12 +3,13 @@
 // package's version. Fleet update pull requests run it across hosted apps.
 //
 // It rewrites AGENTS.md and CLAUDE.md, replaces PE's block at the end of
-// CODEOWNERS (the builder's own lines above it stay), and changes the one
-// `scaffolded_with` line in PASSPORT.yml, leaving the rest of the passport,
-// comments included, exactly as it was. It never touches BUILDER.md.
+// CODEOWNERS (the builder's own lines above it stay), restores a container
+// app's deploy stub, and changes the one `scaffolded_with` line in
+// PASSPORT.yml, leaving the rest of the passport, comments included, exactly
+// as it was. It never touches BUILDER.md, or a deploy.yml of the builder's own.
 //
 // Input: the app's folder.
-// Output: { ok, command, from, to, written, problems }.
+// Output: { ok, command, from, to, written, kept, problems }.
 
 import { writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -16,11 +17,14 @@ import { PACKAGE_VERSION, readIfExists } from './files.js';
 import { writeGovernedFiles } from './governance.js';
 
 /** @typedef {import('./validate.js').Problem} Problem */
+/** @typedef {import('./passport.js').Tier} Tier */
 
 // A `scaffolded_with` line, quoted or not, and the version on it. The
 // lookahead leaves a Windows line ending in place.
 const SCAFFOLDED_LINE = /^scaffolded_with:[ \t]*"?@davidson\/create-choreo-app@(\d+\.\d+\.\d+)"?[ \t]*(?=\r?$)/gm;
 const ANY_SCAFFOLDED_LINE = /^scaffolded_with:/gm;
+// The passport's tier, which decides whether the app gets the deploy stub.
+const TIER_LINE = /^[ \t]+tier:[ \t]*"?(pages|container)"?/m;
 
 /**
  * @typedef {object} UpdateResult
@@ -29,6 +33,7 @@ const ANY_SCAFFOLDED_LINE = /^scaffolded_with:/gm;
  * @property {string | null} from The version the passport named before.
  * @property {string} to This package's version.
  * @property {string[]} written Paths written, relative to the app's folder.
+ * @property {string[]} kept The builder's own deploy.yml, left for PE to swap.
  * @property {Problem[]} problems Why nothing was written, when ok is false.
  */
 
@@ -43,7 +48,7 @@ const ANY_SCAFFOLDED_LINE = /^scaffolded_with:/gm;
 export function update({ dir, version = PACKAGE_VERSION }) {
   const root = resolve(dir);
   const refuse = (/** @type {Problem[]} */ problems, /** @type {string | null} */ from = null) => (
-    { ok: false, command: 'update', from, to: version, written: [], problems }
+    { ok: false, command: 'update', from, to: version, written: [], kept: [], problems }
   );
 
   const passport = readIfExists(root, 'PASSPORT.yml');
@@ -67,7 +72,8 @@ export function update({ dir, version = PACKAGE_VERSION }) {
     return refuse([{ field: 'scaffolded_with', message: `says ${from}, which is newer than this package (${version}). Run the newer package's update instead.` }], from);
   }
 
-  const { written } = writeGovernedFiles(root, { keepOldText: false, writeBuilder: false });
+  const tier = /** @type {Tier | undefined} */ (TIER_LINE.exec(passport)?.[1]);
+  const { written, kept } = writeGovernedFiles(root, { keepOldText: false, writeBuilder: false, tier });
 
   const newLine = `scaffolded_with: "@davidson/create-choreo-app@${version}"`;
   const updated = passport.replace(SCAFFOLDED_LINE, newLine);
@@ -77,7 +83,7 @@ export function update({ dir, version = PACKAGE_VERSION }) {
     written.push('PASSPORT.yml');
   }
 
-  return { ok: true, command: 'update', from, to: version, written, problems: [] };
+  return { ok: true, command: 'update', from, to: version, written, kept, problems: [] };
 }
 
 /**

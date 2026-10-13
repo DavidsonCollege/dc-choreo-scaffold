@@ -29,7 +29,7 @@ const COMMON = [
 test('a container app gets the template, the Containerfile and every governance file', () => {
   const { result, dir } = make('container');
   assert.equal(result.ok, true, JSON.stringify(result.problems));
-  assert.deepEqual(listFiles(dir), [...COMMON, '.dockerignore', 'Containerfile'].sort());
+  assert.deepEqual(listFiles(dir), [...COMMON, '.dockerignore', '.github/workflows/deploy.yml', 'Containerfile'].sort());
   assert.deepEqual(result.written, listFiles(dir));
 });
 

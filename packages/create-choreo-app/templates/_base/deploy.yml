@@ -1,0 +1,27 @@
+# Deploys this app to Choreo on every merge to main. Managed by Platform Engineering: it's the same in every hosted
+# app, and the checks compare it with the canonical copy, so don't edit it. The work happens in the workflow it calls,
+# DavidsonChoreo/dc-choreo-workflows/.github/workflows/deploy.yml.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    uses: DavidsonChoreo/dc-choreo-workflows/.github/workflows/deploy.yml@v1
+    with:
+      client-id: ${{ vars.AZURE_CLIENT_ID }}
+      tenant-id: ${{ vars.AZURE_TENANT_ID }}
+      subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      registry: ${{ vars.CHOREO_REGISTRY }}

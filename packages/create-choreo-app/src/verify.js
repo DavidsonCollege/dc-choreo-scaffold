@@ -20,8 +20,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import {
-  GOVERNED_FILES, MANIFEST, PACKAGE_VERSION, RELEASED, findCodeowners, findLicense,
-  hashOf, isApache, readIfExists, readTemplate,
+  DEPLOY_STUB, GOVERNED_FILES, MANIFEST, PACKAGE_VERSION, RELEASED, findCodeowners, findLicense,
+  hashOf, isApache, isDeployStub, readIfExists, readTemplate,
 } from './files.js';
 import { compareVersions } from './update.js';
 
@@ -83,6 +83,7 @@ export function verify({ dir }) {
   const indexable = field(/^indexable:[ \t]*(true|false)/m);
 
   checks.push(...GOVERNED_FILES.map((name) => governedFile(root, name)));
+  if (tier === 'container') checks.push(deployStub(root));
   checks.push(codeowners(root));
   checks.push(license(root));
   checks.push(credentials(root));
@@ -148,6 +149,29 @@ function governedFile(root, name) {
     return { id, status: 'warn', message: `${name} is an earlier release of PE's copy. Run update to bring it current.` };
   }
   return { id, status: 'fail', message: `${name} has been edited. PE owns it; run update to restore it, and put this repository's own notes in BUILDER.md.` };
+}
+
+/**
+ * A container app's deploy stub. A deploy.yml of the builder's own is a
+ * warning, not a failure: it's how an incubating app still deploys, and PE
+ * swaps it for the stub at the publish request.
+ *
+ * @param {string} root The app's folder.
+ * @returns {Check} The result.
+ */
+function deployStub(root) {
+  const id = 'deploy-stub';
+  const text = readIfExists(root, DEPLOY_STUB);
+  if (text === null) return { id, status: 'fail', message: `${DEPLOY_STUB} is missing. A container app deploys through PE's stub; run update to restore it.` };
+  if (!isDeployStub(text)) {
+    return { id, status: 'warn', message: `${DEPLOY_STUB} is this app's own deploy, not PE's stub. That's fine while the app is incubating; PE replaces it with the stub at the publish request.` };
+  }
+  const hash = hashOf(text);
+  if (hash === hashOf(readTemplate('deploy.yml'))) return { id, status: 'pass', message: `${DEPLOY_STUB} is PE's current deploy stub.` };
+  if ((RELEASED[DEPLOY_STUB] ?? []).some((/** @type {{ sha256: string }} */ r) => r.sha256 === hash)) {
+    return { id, status: 'warn', message: `${DEPLOY_STUB} is an earlier release of PE's deploy stub. Run update to bring it current.` };
+  }
+  return { id, status: 'fail', message: `${DEPLOY_STUB} is PE's deploy stub, edited. It has to match PE's copy; run update to restore it, and ask PE if the app needs to deploy differently.` };
 }
 
 /**

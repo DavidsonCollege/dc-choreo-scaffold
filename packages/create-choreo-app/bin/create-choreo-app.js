@@ -163,15 +163,16 @@ function usage(message, json) {
 }
 
 /**
- * Plain lines for the files a command wrote or moved.
+ * Plain lines for the files a command wrote, moved or kept.
  *
- * @param {{ written: string[], moved?: string[] }} result The result.
+ * @param {{ written: string[], moved?: string[], kept?: string[] }} result The result.
  * @returns {string[]} The lines.
  */
 function writtenLines(result) {
   return [
     ...result.written.map((path) => `wrote ${path}`),
     ...(result.moved ?? []).map((path) => `moved the old ${path} into BUILDER.md`),
+    ...(result.kept ?? []).map((path) => `kept your own ${path}: the app still deploys this way until PE replaces it with the Choreo deploy stub at the publish request`),
   ];
 }
 

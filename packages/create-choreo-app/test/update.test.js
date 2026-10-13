@@ -3,6 +3,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { governance } from '../src/governance.js';
 import { update, compareVersions } from '../src/update.js';
 import { hashOf, readTemplate } from '../src/files.js';
@@ -93,4 +95,23 @@ test('versions compare by number, not by text', () => {
   assert.ok(compareVersions('0.10.0', '0.9.0') > 0);
   assert.ok(compareVersions('1.0.0', '1.0.1') < 0);
   assert.equal(compareVersions('2.3.4', '2.3.4'), 0);
+});
+
+test("update restores an edited deploy stub, and a missing one", () => {
+  const dir = olderApp();
+  put(dir, '.github/workflows/deploy.yml', `${readTemplate('deploy.yml')}      extra: true\n`);
+  assert.ok(update({ dir }).written.includes('.github/workflows/deploy.yml'));
+  assert.equal(read(dir, '.github/workflows/deploy.yml'), readTemplate('deploy.yml'));
+  rmSync(join(dir, '.github/workflows/deploy.yml'));
+  update({ dir });
+  assert.equal(read(dir, '.github/workflows/deploy.yml'), readTemplate('deploy.yml'));
+});
+
+test("update never replaces a deploy.yml of the builder's own", () => {
+  const dir = olderApp();
+  const own = 'name: deploy\non: push\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./deploy.sh\n';
+  put(dir, '.github/workflows/deploy.yml', own);
+  const result = update({ dir });
+  assert.equal(read(dir, '.github/workflows/deploy.yml'), own);
+  assert.deepEqual(result.kept, ['.github/workflows/deploy.yml']);
 });
