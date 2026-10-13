@@ -13,6 +13,12 @@
 // npmrc), because npm leaves some dotfiles out of a package. create adds the
 // dot back.
 //
+// A released package also carries templates/app-lock.json: the lockfile its
+// release installed and tested (scripts/template-lockfile.mjs). create writes
+// it as the app's package-lock.json, and the next steps install with `npm ci`,
+// so the app starts from exactly that dependency set. Run from a clone, there's
+// no lockfile and the next steps use `npm install`.
+//
 // Input: the app's name, tier, parsed answers, where to create it, today.
 // Output: { ok, command, dir, written, next, problems }.
 
@@ -27,6 +33,10 @@ import { buildPassport, toYaml } from './passport.js';
 
 // Template files stored without their leading dot.
 const DOTFILES = new Set(['gitignore', 'npmrc', 'gitattributes', 'dockerignore']);
+
+// The tested lockfile a release ships. Not named package-lock.json, which npm
+// treats specially when packing.
+export const LOCKFILE = join(TEMPLATES_DIR, 'app-lock.json');
 
 const BUILD_SCRIPT = { pages: 'nuxt generate', container: 'nuxt build' };
 const APP_NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -51,9 +61,10 @@ const APP_NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
  * @param {string} [options.parent] The folder to create the app in. Defaults to the current one.
  * @param {boolean} [options.force] Write into a folder that isn't empty.
  * @param {Date} [options.today] The day the passport is written.
+ * @param {string} [options.lockfile] The tested lockfile to start from, if there is one.
  * @returns {CreateResult} What was written, or why nothing was.
  */
-export function create({ name, tier, answers, parent = '.', force = false, today = new Date() }) {
+export function create({ name, tier, answers, parent = '.', force = false, today = new Date(), lockfile = LOCKFILE }) {
   const dir = resolve(parent, name);
   const refuse = (/** @type {Problem[]} */ problems) => ({ ok: false, command: 'create', dir, written: [], next: [], problems });
 
@@ -78,6 +89,12 @@ export function create({ name, tier, answers, parent = '.', force = false, today
   writeText(dir, '.github/dependabot.yml', dependabot(tier));
   written.push('package.json', '.nvmrc', '.github/dependabot.yml');
 
+  const locked = existsSync(lockfile);
+  if (locked) {
+    writeText(dir, 'package-lock.json', lockfileFor(lockfile, name));
+    written.push('package-lock.json');
+  }
+
   written.push(...writeGovernedFiles(dir, { keepOldText: false, tier }).written);
   writeText(dir, 'LICENSE', readTemplate('LICENSE'));
   writeText(dir, 'PASSPORT.yml', toYaml(built.passport));
@@ -90,7 +107,7 @@ export function create({ name, tier, answers, parent = '.', force = false, today
     written: [...new Set(written)].sort(),
     next: [
       `cd ${name}`,
-      'npm install',
+      locked ? 'npm ci' : 'npm install',
       'git init',
       'git add -A',
       'git commit -m "Start the app from @davidson/create-choreo-app"',
@@ -181,6 +198,21 @@ function dependabot(tier) {
     );
   }
   return `${lines.join('\n')}\n`;
+}
+
+/**
+ * The tested lockfile, named for this app. Only the name changes; npm ci
+ * installs exactly the packages it lists.
+ *
+ * @param {string} path The tested lockfile.
+ * @param {string} name The app's name.
+ * @returns {string} The app's package-lock.json.
+ */
+function lockfileFor(path, name) {
+  const lock = JSON.parse(readFileSync(path, 'utf8'));
+  lock.name = name;
+  if (lock.packages?.['']) lock.packages[''].name = name;
+  return `${JSON.stringify(lock, null, 2)}\n`;
 }
 
 /**

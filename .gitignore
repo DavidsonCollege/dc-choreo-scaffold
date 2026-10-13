@@ -3,3 +3,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# The tested lockfile a release generates and packs into create-choreo-app
+# (scripts/template-lockfile.mjs). Never committed.
+packages/create-choreo-app/templates/app-lock.json

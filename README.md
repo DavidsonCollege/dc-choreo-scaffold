@@ -31,9 +31,13 @@ Name the file with `--package` and the command after it. The shorter `npx <file>
 
 To work on the package itself, run it from a clone: `node packages/create-choreo-app/bin/create-choreo-app.js doctor`.
 
+## The lockfile new apps start from
+
+A released command line carries the lockfile its own release installed and tested (`scripts/template-lockfile.mjs`). `create` writes it into the new app as `package-lock.json`, and the first install is `npm ci`, so every app starts from exactly the set of packages Platform Engineering tested, rather than whatever npm resolves that day. Run from a clone, there's no lockfile and the first install is `npm install`. Releasing regularly keeps that tested set current.
+
 ## Releasing
 
-Set the same new version in both packages' `package.json`, merge that to `main`, then push a tag `v<version>` on the merged commit. `.github/workflows/release.yml` checks the tag matches both versions, runs the tests, packs both packages, attests them, and creates the release. The layer's release URL in `packages/create-choreo-app/src/manifest.json` follows the same version, so apps made with a version install that version's layer.
+Set the same new version in both packages' `package.json`, merge that to `main`, then push a tag `v<version>` on the merged commit. `.github/workflows/release.yml` checks the tag matches both versions, runs the tests, packs the layer, makes and tests the lockfile new apps start from, packs the command line with it, attests both, and creates the release. The layer's release URL in `packages/create-choreo-app/src/manifest.json` follows the same version, so apps made with a version install that version's layer.
 
 ## The layer
 

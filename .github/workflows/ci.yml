@@ -9,7 +9,9 @@
 # governance-app: a made-up app written by `governance`, checked by the real
 #                 Choreo passport, license and files checks.
 # test-app:       a made-up paved-road app written by `create` for each tier,
-#                 with the layer installed from its packed file, built and run
+#                 installed with npm ci from the lockfile a release would ship
+#                 (scripts/template-lockfile.mjs), with the layer at its packed
+#                 file, built and run
 #                 through every Choreo check an app faces at the publish request.
 #                 The container app's /api guard is then probed against its
 #                 built server (.github/scripts/guard-probe.mjs).
@@ -162,6 +164,16 @@ jobs:
           mkdir -p "$RUNNER_TEMP/apps"
           cd packages/choreo-layer
           npm pack --pack-destination "$RUNNER_TEMP/apps"
+      # The same lockfile a release makes and ships (scripts/template-lockfile.mjs),
+      # with the layer at its packed file. create writes it into the app, and the
+      # install below is npm ci, so every check runs against exactly that set.
+      - name: Make the lockfile new apps start from
+        run: |
+          tgz=$(cd "$RUNNER_TEMP/apps" && ls davidson-choreo-layer-*.tgz)
+          node scripts/template-lockfile.mjs \
+            --layer "$RUNNER_TEMP/apps/$tgz" \
+            --layer-ref "file:../$tgz" \
+            --out packages/create-choreo-app/templates/app-lock.json
       - name: Write a made-up app with create
         env:
           TIER: ${{ matrix.tier }}
@@ -187,10 +199,11 @@ jobs:
           const changed = Object.keys(pkg.dependencies).filter((k) => pkg.dependencies[k] !== JSON.parse(written).dependencies[k]);
           if (changed.join() !== '@davidson/choreo-layer') { console.log('::error::Unexpected change: ' + changed); process.exit(1); }
           fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');"
-      - name: Install, and start the git history the secrets check scans
+      - name: Install from create's lockfile, and start the git history the secrets check scans
         working-directory: ${{ runner.temp }}/apps/example-app
         run: |
-          npm install --no-audit --no-fund
+          test -f package-lock.json || { echo "::error::create didn't write package-lock.json from the template's lockfile."; exit 1; }
+          npm ci --no-audit --no-fund
           git init -q
           git add -A
           git -c user.name="Choreo CI" -c user.email="ci@example.invalid" commit -q -m "Start the app from create-choreo-app"
