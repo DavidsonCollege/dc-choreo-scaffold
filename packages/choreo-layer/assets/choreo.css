@@ -1,0 +1,27 @@
+/*
+ * The Choreo layer's styles: Tailwind, and the brand tokens every app shares.
+ *
+ * PLACEHOLDER brand values. These are neutral colors, chosen so every text and
+ * background pair meets WCAG 2.1 AA contrast, until College Communications'
+ * brand guide values are in. Don't treat them as Davidson's colors.
+ *
+ * @source points Tailwind at the layer's own components, because Tailwind
+ * doesn't look inside installed packages on its own.
+ */
+@import "tailwindcss";
+@source "../app/components";
+
+@theme {
+  --color-dc-ink: #1a1a1a;
+  --color-dc-paper: #ffffff;
+  --color-dc-muted: #4a4a4a;
+  --color-dc-accent: #2b4a6f;
+  --color-dc-on-accent: #ffffff;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  color: var(--color-dc-ink);
+  background: var(--color-dc-paper);
+  font-family: var(--font-sans);
+}
