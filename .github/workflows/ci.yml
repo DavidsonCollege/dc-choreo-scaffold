@@ -11,6 +11,8 @@
 # test-app:       a made-up paved-road app written by `create` for each tier,
 #                 with the layer installed from its packed file, built and run
 #                 through every Choreo check an app faces at the publish request.
+#                 The container app's /api guard is then probed against its
+#                 built server (.github/scripts/guard-probe.mjs).
 #
 # Actions are pinned to full commit SHAs. No secrets are used.
 
@@ -239,3 +241,53 @@ jobs:
           check accessibility strict
 
           if [ -n "$failed" ]; then echo "::error::Failed:$failed"; exit 1; fi
+
+      # The container app's /api guard, run against its built server. Two
+      # throwaway routes are written into the temporary app, never the template.
+      # Made-up GUIDs stand in for the Entra ids; no real token is used.
+      - name: The /api guard refuses what it should (container)
+        if: matrix.tier == 'container'
+        working-directory: ${{ runner.temp }}/apps/example-app
+        env:
+          PROBE: ${{ github.workspace }}/.github/scripts/guard-probe.mjs
+        run: |
+          mkdir -p server/api
+          printf '// CI probe route.\nexport default defineEventHandler(async (event) => ({ id: (await requireUser(event)).id }))\n' > server/api/ci-probe.get.ts
+          cp server/api/ci-probe.get.ts server/api/ci-probe.post.ts
+          npm run build
+
+          if grep -rqE 'Dana Example|__nuxt_devtools__' .output/server; then
+            echo "::error::The built server holds the dev user or devtools, which must never ship."
+            exit 1
+          fi
+
+          wait_for() { for i in $(seq 1 30); do curl -sf -o /dev/null "http://localhost:$1/health" && return 0; sleep 1; done; echo "::error::The server didn't start on port $1."; return 1; }
+
+          PORT=3101 NUXT_CHOREO_ENTRA_TENANT_ID=11111111-2222-3333-4444-555555555555 \
+            NUXT_CHOREO_ENTRA_CLIENT_ID=66666666-7777-8888-9999-000000000000 \
+            node .output/server/index.mjs > "$RUNNER_TEMP/configured.log" 2>&1 &
+          configured=$!
+          wait_for 3101
+          node "$PROBE" http://localhost:3101 configured || { kill $configured; cat "$RUNNER_TEMP/configured.log"; exit 1; }
+          kill $configured
+
+          PORT=3102 node .output/server/index.mjs > "$RUNNER_TEMP/unconfigured.log" 2>&1 &
+          unconfigured=$!
+          wait_for 3102
+          node "$PROBE" http://localhost:3102 unconfigured || { kill $unconfigured; cat "$RUNNER_TEMP/unconfigured.log"; exit 1; }
+          kill $unconfigured
+
+      # Server code outside the /api guard is warned about, never a failed build
+      # (the layer's decision 7). Runs last: it adds throwaway files to the app.
+      - name: Code outside the /api guard warns but builds (container)
+        if: matrix.tier == 'container'
+        working-directory: ${{ runner.temp }}/apps/example-app
+        run: |
+          set -o pipefail
+          mkdir -p server/routes server/middleware app/components
+          printf '// Throwaway.\nexport default defineEventHandler(() => ({ ok: true }))\n' > server/routes/outside.get.ts
+          printf '// Throwaway.\nexport default defineEventHandler(() => {})\n' > server/middleware/outside.ts
+          printf '<template><p>Throwaway</p></template>\n' > app/components/Outside.server.vue
+          npm run build 2>&1 | tee "$RUNNER_TEMP/outside.log"
+          count=$(grep -c 'flagged for review at the publish request' "$RUNNER_TEMP/outside.log" || true)
+          if [ "$count" -ne 3 ]; then echo "::error::Expected 3 warnings for code outside the guard, got $count."; exit 1; fi
