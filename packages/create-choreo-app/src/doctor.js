@@ -3,8 +3,10 @@
 // app, before anything is built. The plugin runs it first.
 //
 // It checks the Node version against the range apps use, that npm, git and the
-// GitHub CLI are installed, that the GitHub CLI is signed in, and that the npm
-// registry and GitHub can be reached over HTTPS. A certificate error on that
+// GitHub CLI are installed, whether the GitHub CLI is signed in, and that the npm
+// registry and GitHub can be reached over HTTPS. Not being signed in is only a
+// warning: setting up an app doesn't need it (releases attach their attestation
+// bundle, so the check works offline), and backing up to GitHub later does. A certificate error on that
 // last check usually means the network inspects encrypted traffic, which breaks
 // npm until the computer trusts the network's certificate.
 //
@@ -87,7 +89,7 @@ export async function doctor({ run = runCommand, fetch = fetchUrl, nodeVersion =
     const auth = run('gh', ['auth', 'status']);
     checks.push(auth.status === 0
       ? { id: 'gh-auth', status: 'pass', message: 'The GitHub CLI is signed in.' }
-      : { id: 'gh-auth', status: 'fail', message: 'The GitHub CLI isn\'t signed in. Run `gh auth login` and sign in with your Davidson GitHub account.' });
+      : { id: 'gh-auth', status: 'warn', message: 'The GitHub CLI isn\'t signed in. Setting up an app doesn\'t need it; backing it up to GitHub does. Run `gh auth login` and sign in with your Davidson GitHub account before then.' });
   }
 
   for (const [id, url, what] of ENDPOINTS) {

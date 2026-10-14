@@ -27,10 +27,11 @@ test('a missing GitHub CLI fails, and its sign-in is not checked', async () => {
   assert.equal(status(result, 'gh-auth'), undefined);
 });
 
-test('a signed-out GitHub CLI fails with how to sign in', async () => {
+test('a signed-out GitHub CLI warns with how to sign in, and the computer is still ready', async () => {
   const signedOut = (command, args) => (args[0] === 'auth' ? { status: 1, stdout: 'not logged in' } : allGood(command, args));
   const result = await doctor({ run: signedOut, fetch: online, nodeVersion: '22.22.3' });
-  assert.equal(status(result, 'gh-auth'), 'fail');
+  assert.equal(status(result, 'gh-auth'), 'warn');
+  assert.equal(result.ok, true, JSON.stringify(result.checks));
   assert.match(result.checks.find((c) => c.id === 'gh-auth').message, /gh auth login/);
 });
 
