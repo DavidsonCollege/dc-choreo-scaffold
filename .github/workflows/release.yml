@@ -10,13 +10,21 @@
 #      layer entry pointed at this release, and it goes into the command line
 #      (scripts/template-lockfile.mjs), so apps start from exactly what this run tested
 #   5. packs the command line
-#   6. attests both tarballs, so anyone can check they were built here
-#   7. creates the GitHub Release with both tarballs attached
+#   6. attests both tarballs, so anyone can check they were built here, and
+#      keeps the attestation bundle (one bundle covers both tarballs)
+#   7. creates the GitHub Release with both tarballs and the bundle attached
 #
 # There's no npm registry. Builders run the command line from the release:
 #   gh release download vX.Y.Z -R DavidsonCollege/dc-choreo-scaffold -p 'davidson-create-choreo-app-*.tgz'
 #   gh attestation verify davidson-create-choreo-app-X.Y.Z.tgz --repo DavidsonCollege/dc-choreo-scaffold
 #   npx --yes --package ./davidson-create-choreo-app-X.Y.Z.tgz create-choreo-app doctor
+# Downloading needs no GitHub sign-in, but fetching the attestation for the
+# check does. Where signing in isn't possible (Claude Desktop's Cowork), the
+# attached bundle lets the check run without one:
+#   gh release download vX.Y.Z -R DavidsonCollege/dc-choreo-scaffold -p 'davidson-create-choreo-app-*.tgz' -p 'davidson-choreo-*.sigstore.jsonl'
+#   gh attestation verify davidson-create-choreo-app-X.Y.Z.tgz --repo DavidsonCollege/dc-choreo-scaffold --bundle davidson-choreo-X.Y.Z.sigstore.jsonl
+# The bundle can't be forged: the check still proves it was signed for this
+# repository's workflow.
 # and apps install the layer from its release URL (create-choreo-app's manifest.json).
 #
 # Permissions, on the job only:
@@ -93,8 +101,16 @@ jobs:
           ls -l dist
 
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        id: attest
         with:
           subject-path: dist/*.tgz
+
+      - name: Keep the attestation bundle for the release
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          [ -s "$BUNDLE" ] || { echo "::error::The attest step left no bundle at '$BUNDLE'."; exit 1; }
+          cp "$BUNDLE" "dist/davidson-choreo-${TAG#v}.sigstore.jsonl"
 
       - name: Create the release
         env:
@@ -112,6 +128,13 @@ jobs:
           npx --yes --package ./davidson-create-choreo-app-${version}.tgz create-choreo-app doctor
           \`\`\`
 
+          The check needs a GitHub sign-in to fetch the attestation. Without one, use the attached bundle, which covers both tarballs:
+
+          \`\`\`
+          gh release download ${TAG} -R ${GITHUB_REPOSITORY} -p 'davidson-choreo-*.sigstore.jsonl'
+          gh attestation verify davidson-create-choreo-app-${version}.tgz --repo ${GITHUB_REPOSITORY} --bundle davidson-choreo-${version}.sigstore.jsonl
+          \`\`\`
+
           Apps made with this version install the layer from this release, and start from the lockfile this release tested: their first install, \`npm ci\`, gets exactly that set of packages.
           EOF
-          gh release create "$TAG" dist/*.tgz --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file notes.md --verify-tag
+          gh release create "$TAG" dist/*.tgz dist/*.sigstore.jsonl --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file notes.md --verify-tag
