@@ -1,6 +1,6 @@
 {
   "name": "@davidson/create-choreo-app",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Scaffolds a Choreo app: the Nuxt template, PASSPORT.yml and Platform Engineering's governance files.",
   "license": "Apache-2.0",
   "type": "module",

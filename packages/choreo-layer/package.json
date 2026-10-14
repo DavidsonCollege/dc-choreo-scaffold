@@ -1,6 +1,6 @@
 {
   "name": "@davidson/choreo-layer",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "The shared Nuxt layer for Choreo apps: the Davidson header and footer, brand tokens, and robots, noindex and health handling read from PASSPORT.yml.",
   "license": "Apache-2.0",
   "type": "module",
