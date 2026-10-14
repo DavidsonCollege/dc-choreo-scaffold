@@ -29,6 +29,13 @@ npx --yes --package ./davidson-create-choreo-app-0.1.0.tgz create-choreo-app doc
 
 Name the file with `--package` and the command after it. The shorter `npx <file> doctor` silently does nothing when run inside a folder that has its own `package.json`.
 
+Downloading needs no GitHub sign-in, but the check does, to fetch the attestation. Where you can't sign in, such as Claude Desktop's Cowork, releases after 0.2.0 attach the attestation bundle, which covers both tarballs (replace `X.Y.Z` with the version):
+
+```
+gh release download vX.Y.Z -R DavidsonCollege/dc-choreo-scaffold -p 'davidson-choreo-*.sigstore.jsonl'
+gh attestation verify davidson-create-choreo-app-X.Y.Z.tgz --repo DavidsonCollege/dc-choreo-scaffold --bundle davidson-choreo-X.Y.Z.sigstore.jsonl
+```
+
 To work on the package itself, run it from a clone: `node packages/create-choreo-app/bin/create-choreo-app.js doctor`.
 
 ## The lockfile new apps start from
