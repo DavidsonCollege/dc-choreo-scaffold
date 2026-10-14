@@ -84,8 +84,16 @@ jobs:
           mkdir dist
           npm pack -w packages/choreo-layer --pack-destination dist
 
+      # npm 11 on this step only: npm 10 (Node 22's) crashes resolving the
+      # template's tree from scratch ("reading 'edgesOut'", October 2026).
+      # CI installs the lockfile with npm 10 on every pull request, as builders do.
       - name: Make and test the lockfile new apps start from
+        env:
+          NPM_FOR_LOCKFILE: npm@11.16.0
         run: |
+          npm install -g --prefix "$RUNNER_TEMP/npm-lockfile" "$NPM_FOR_LOCKFILE" --no-audit --no-fund --loglevel=error
+          export PATH="$RUNNER_TEMP/npm-lockfile/bin:$PATH"
+          echo "Making the lockfile with npm $(npm --version)"
           version="${TAG#v}"
           url=$(node -p "require('./packages/create-choreo-app/src/manifest.json').layer.release.replaceAll('{version}', '$version')")
           node scripts/template-lockfile.mjs --check \
