@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { governance } from '../src/governance.js';
 import { update, compareVersions } from '../src/update.js';
@@ -97,21 +97,16 @@ test('versions compare by number, not by text', () => {
   assert.equal(compareVersions('2.3.4', '2.3.4'), 0);
 });
 
-test("update restores an edited deploy stub, and a missing one", () => {
+test('update writes nothing under .github/workflows/: an edited stub stays edited, a missing one stays missing', () => {
   const dir = olderApp();
-  put(dir, '.github/workflows/deploy.yml', `${readTemplate('deploy.yml')}      extra: true\n`);
-  assert.ok(update({ dir }).written.includes('.github/workflows/deploy.yml'));
-  assert.equal(read(dir, '.github/workflows/deploy.yml'), readTemplate('deploy.yml'));
+  const edited = 'name: deploy\njobs:\n  deploy:\n    uses: DavidsonChoreo/dc-choreo-workflows/.github/workflows/deploy.yml@v1\n      extra: true\n';
+  put(dir, '.github/workflows/deploy.yml', edited);
+  const result = update({ dir });
+  assert.equal(result.ok, true, JSON.stringify(result.problems));
+  assert.equal(read(dir, '.github/workflows/deploy.yml'), edited);
+  assert.equal(result.written.some((path) => path.startsWith('.github/workflows/')), false);
+  assert.equal('kept' in result, false);
   rmSync(join(dir, '.github/workflows/deploy.yml'));
   update({ dir });
-  assert.equal(read(dir, '.github/workflows/deploy.yml'), readTemplate('deploy.yml'));
-});
-
-test("update never replaces a deploy.yml of the builder's own", () => {
-  const dir = olderApp();
-  const own = 'name: deploy\non: push\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./deploy.sh\n';
-  put(dir, '.github/workflows/deploy.yml', own);
-  const result = update({ dir });
-  assert.equal(read(dir, '.github/workflows/deploy.yml'), own);
-  assert.deepEqual(result.kept, ['.github/workflows/deploy.yml']);
+  assert.equal(existsSync(join(dir, '.github/workflows/deploy.yml')), false);
 });

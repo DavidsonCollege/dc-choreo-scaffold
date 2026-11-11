@@ -82,7 +82,7 @@ test("a catch-all CODEOWNERS line after PE's block fails", () => {
   put(dir, '.github/CODEOWNERS', `${read(dir, '.github/CODEOWNERS')}* @example-builder\n`);
   const result = verify({ dir });
   assert.equal(status(result, 'codeowners'), 'fail');
-  assert.match(message(result, 'codeowners'), /PASSPORT\.yml, AGENTS\.md, CLAUDE\.md/);
+  assert.match(message(result, 'codeowners'), /PASSPORT\.yml, AGENTS\.md, CLAUDE\.md, \.github\/workflows\//);
 });
 
 test('an .env file fails the credentials check; .env.example is fine', () => {
@@ -179,28 +179,21 @@ test('a missing passport fails', () => {
   assert.equal(status(verify({ dir }), 'passport'), 'fail');
 });
 
-test("a container app's deploy stub: missing and edited fail, the builder's own is a warning", () => {
+test('verify has no deploy stub check: PE adds the stub at go-live', () => {
   const dir = governed();
-  assert.equal(status(verify({ dir }), 'deploy-stub'), 'pass');
-
-  put(dir, '.github/workflows/deploy.yml', read(dir, '.github/workflows/deploy.yml').replaceAll('\n', '\r\n'));
-  assert.equal(status(verify({ dir }), 'deploy-stub'), 'pass');
-
-  put(dir, '.github/workflows/deploy.yml', `${read(dir, '.github/workflows/deploy.yml')}      extra: true\n`);
-  assert.equal(status(verify({ dir }), 'deploy-stub'), 'fail');
-
-  put(dir, '.github/workflows/deploy.yml', 'name: deploy\non: push\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./deploy.sh\n');
-  const own = verify({ dir });
-  assert.equal(own.ok, true);
-  assert.equal(status(own, 'deploy-stub'), 'warn');
-  assert.match(message(own, 'deploy-stub'), /publish request/);
-
-  rmSync(join(dir, '.github/workflows/deploy.yml'));
-  assert.equal(status(verify({ dir }), 'deploy-stub'), 'fail');
+  const result = verify({ dir });
+  assert.equal(result.ok, true, JSON.stringify(result.checks.filter((c) => c.status === 'fail')));
+  assert.equal(status(result, 'deploy-stub'), undefined);
 });
 
-test('a Pages site has no deploy stub check', () => {
-  const dir = paved('pages');
-  rmSync(join(dir, '.github/workflows/deploy.yml'));
-  assert.equal(status(verify({ dir }), 'deploy-stub'), undefined);
+test('a CODEOWNERS without the workflows line fails, and so does a later line giving one workflow away', () => {
+  const dir = governed();
+  const block = read(dir, '.github/CODEOWNERS');
+  put(dir, '.github/CODEOWNERS', block.replace('/.github/workflows/ @DavidsonChoreo/platform-engineering\n', ''));
+  assert.equal(status(verify({ dir }), 'codeowners'), 'fail');
+  assert.match(message(verify({ dir }), 'codeowners'), /\.github\/workflows\//);
+  put(dir, '.github/CODEOWNERS', `${block}/.github/workflows/tests.yml @example-builder\n`);
+  assert.equal(status(verify({ dir }), 'codeowners'), 'fail');
+  put(dir, '.github/CODEOWNERS', `/.github/workflows/tests.yml @example-builder\n${block}`);
+  assert.equal(status(verify({ dir }), 'codeowners'), 'pass');
 });

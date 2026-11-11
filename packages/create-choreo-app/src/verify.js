@@ -20,8 +20,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import {
-  DEPLOY_STUB, GOVERNED_FILES, MANIFEST, PACKAGE_VERSION, RELEASED, findCodeowners, findLicense,
-  hashOf, isApache, isDeployStub, readIfExists, readTemplate,
+  GOVERNED_FILES, MANIFEST, PACKAGE_VERSION, RELEASED, WORKFLOWS_DIR, findCodeowners, findLicense,
+  hashOf, isApache, readIfExists, readTemplate,
 } from './files.js';
 import { compareVersions } from './update.js';
 
@@ -83,7 +83,6 @@ export function verify({ dir }) {
   const indexable = field(/^indexable:[ \t]*(true|false)/m);
 
   checks.push(...GOVERNED_FILES.map((name) => governedFile(root, name)));
-  if (tier === 'container') checks.push(deployStub(root));
   checks.push(codeowners(root));
   checks.push(license(root));
   checks.push(credentials(root));
@@ -152,31 +151,10 @@ function governedFile(root, name) {
 }
 
 /**
- * A container app's deploy stub. A deploy.yml of the builder's own is a
- * warning, not a failure: it's how an incubating app still deploys, and PE
- * swaps it for the stub at the publish request.
- *
- * @param {string} root The app's folder.
- * @returns {Check} The result.
- */
-function deployStub(root) {
-  const id = 'deploy-stub';
-  const text = readIfExists(root, DEPLOY_STUB);
-  if (text === null) return { id, status: 'fail', message: `${DEPLOY_STUB} is missing. A container app deploys through PE's stub; run update to restore it.` };
-  if (!isDeployStub(text)) {
-    return { id, status: 'warn', message: `${DEPLOY_STUB} is this app's own deploy, not PE's stub. That's fine while the app is incubating; PE replaces it with the stub at the publish request.` };
-  }
-  const hash = hashOf(text);
-  if (hash === hashOf(readTemplate('deploy.yml'))) return { id, status: 'pass', message: `${DEPLOY_STUB} is PE's current deploy stub.` };
-  if ((RELEASED[DEPLOY_STUB] ?? []).some((/** @type {{ sha256: string }} */ r) => r.sha256 === hash)) {
-    return { id, status: 'warn', message: `${DEPLOY_STUB} is an earlier release of PE's deploy stub. Run update to bring it current.` };
-  }
-  return { id, status: 'fail', message: `${DEPLOY_STUB} is PE's deploy stub, edited. It has to match PE's copy; run update to restore it, and ask PE if the app needs to deploy differently.` };
-}
-
-/**
- * CODEOWNERS gives the passport and the governance files to PE, judged by the
- * last matching line, the same way GitHub and the files check read it.
+ * CODEOWNERS gives the passport, the governance files and the workflows folder
+ * to PE, judged by the last matching line, the same way GitHub and the files
+ * check read it. For the folder, the last line covering all of it and every
+ * later line for a workflow inside it have to name PE.
  *
  * @param {string} root The app's folder.
  * @returns {Check} The result.
@@ -195,8 +173,15 @@ function codeowners(root) {
     const last = rules.filter(({ pattern }) => CATCH_ALL.has(pattern) || pattern.replace(/^\//, '') === file).at(-1);
     return !last || !last.owners.includes(PE_TEAM);
   });
+
+  const bare = (/** @type {string} */ pattern) => pattern.replace(/^\//, '').replace(/\/(\*\*?)?$/, '');
+  const lastIndex = rules.findLastIndex(({ pattern }) => CATCH_ALL.has(pattern) || ['.github', WORKFLOWS_DIR].includes(bare(pattern)));
+  const workflowsOk = lastIndex !== -1 && rules.slice(lastIndex)
+    .every(({ pattern, owners }, i) => (i > 0 && !bare(pattern).startsWith(`${WORKFLOWS_DIR}/`)) || owners.includes(PE_TEAM));
+  if (!workflowsOk) missing.push(`${WORKFLOWS_DIR}/`);
+
   return missing.length === 0
-    ? { id: 'codeowners', status: 'pass', message: `${path} gives the passport and governance files to ${PE_TEAM}.` }
+    ? { id: 'codeowners', status: 'pass', message: `${path} gives the passport, the governance files and ${WORKFLOWS_DIR}/ to ${PE_TEAM}.` }
     : { id: 'codeowners', status: 'fail', message: `In ${path}, the last line matching ${missing.join(', ')} leaves out ${PE_TEAM}. Run update to restore PE's block at the end.` };
 }
 

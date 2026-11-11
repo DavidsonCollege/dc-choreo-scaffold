@@ -95,7 +95,7 @@ export function create({ name, tier, answers, parent = '.', force = false, today
     written.push('package-lock.json');
   }
 
-  written.push(...writeGovernedFiles(dir, { keepOldText: false, tier }).written);
+  written.push(...writeGovernedFiles(dir, { keepOldText: false }).written);
   writeText(dir, 'LICENSE', readTemplate('LICENSE'));
   writeText(dir, 'PASSPORT.yml', toYaml(built.passport));
   written.push('LICENSE', 'PASSPORT.yml');
