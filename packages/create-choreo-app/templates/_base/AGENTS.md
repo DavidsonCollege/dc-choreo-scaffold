@@ -1,4 +1,4 @@
-<!-- Choreo governance file, version 2. Platform Engineering owns this file, and the package's update command rewrites it. An edited copy fails CI. Put this repository's own notes in BUILDER.md. -->
+<!-- Choreo governance file, version 3. Platform Engineering owns this file, and the package's update command rewrites it. An edited copy fails CI. Put this repository's own notes in BUILDER.md. -->
 
 # Agent instructions
 
@@ -39,9 +39,15 @@ On either road, leave PE's files alone: this file, `CLAUDE.md` and the deploy wo
 
 The repository's history becomes public when the app goes live, and deleting a file doesn't remove it from the history. Never commit real data or anything derived from it: database exports, sample records, screenshots of real screens, log excerpts or internal hostnames. Use made-up data for fixtures, seeds and tests. If the builder shares real data in the conversation, use it only to understand its shape, and write made-up data in its place.
 
-## 6. No credentials, anywhere
+## 6. Credentials: 1Password on a laptop, the key vault in production
 
-Never ask for, accept, hold or use a credential: a password, API key, token, connection string, certificate or private key. That includes this conversation. If the builder pastes one, don't use it or repeat it, and tell them it has to be rotated, because it has left the one place it belonged. The app reads its secrets at runtime from its own key vault through its managed identity, which PE sets up. Never put a secret in code, configuration, `.env` files, test fixtures, logs, error messages, browser storage, commit messages or `BUILDER.md`. If you find one in the repository, stop and tell the builder. It has to be rotated, because deleting it doesn't remove it from the history.
+A credential is a password, API key, token, connection string, certificate or private key. It lives in exactly one of two places, and nowhere else.
+
+- **In production,** the app reads its secrets at runtime from its own key vault through its managed identity, which PE sets up. Production credentials live only there.
+- **On the builder's computer,** a credential for development lives only in a 1Password Environment, mounted at the app's `.env` path. 1Password fills that file when the app reads it, so the value is never written to disk. Set it up with the 1Password plugin's `1password-environments` skill: create the Environment, then mount it. The builder types the values into the 1Password app.
+- **Keep the two in step.** Both hold the same secrets under the same names, listed without values in `.env.example`. A variable maps to the vault secret of the same name in lower kebab case: `CANVAS_TOKEN` is `canvas-token`. When a secret is added, renamed or removed on one side, change the other too. PE sets the key vault side, so tell the builder to ask PE.
+
+Never ask for, accept, hold or use a credential yourself. That includes this conversation. If the builder pastes one, don't use it or repeat it, and tell them it has to be rotated, because it has left the one place it belonged. Never read the mounted `.env`; ask the 1Password skill for the names instead. Never put a secret anywhere else: code, configuration, a plaintext `.env` file, test fixtures, logs, error messages, browser storage, commit messages or `BUILDER.md`. If you find one in the repository, stop and tell the builder. It has to be rotated, because deleting it doesn't remove it from the history.
 
 ## 7. Ask before anything you can't undo
 

@@ -6,6 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { governance } from '../src/governance.js';
@@ -91,6 +92,15 @@ test('an .env file fails the credentials check; .env.example is fine', () => {
   assert.equal(status(verify({ dir }), 'credentials'), 'pass');
   put(dir, '.env', 'API_URL=\n');
   assert.equal(status(verify({ dir }), 'credentials'), 'fail');
+});
+
+test('a 1Password Environment mounted at .env passes the credentials check (AGENTS.md rule 6)', {
+  skip: process.platform === 'win32' && 'named pipes are macOS and Linux only',
+}, () => {
+  // 1Password mounts an Environment as a named pipe and fills it when read, so no value is on disk.
+  const dir = governed();
+  execFileSync('mkfifo', [join(dir, '.env')]);
+  assert.equal(status(verify({ dir }), 'credentials'), 'pass');
 });
 
 test('a token in the code fails, and the report never repeats it', () => {
