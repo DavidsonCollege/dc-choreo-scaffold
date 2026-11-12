@@ -1,7 +1,8 @@
 {
   "comment": "SHA-256 (after converting line endings to LF) of every earlier release of the governance files. verify treats a match as an older version that update can bring current, not as an edit. The same hashes are in dc-choreo-workflows canonical/hashes.json.",
   "AGENTS.md": [
-    { "version": 1, "sha256": "50208364e0d0507c7207d0de87423f97c918e042c51ed25c6b6bcb634e4e9e2d", "from": "DavidsonCollege/dc-choreo-scaffold@46f1939" }
+    { "version": 1, "sha256": "50208364e0d0507c7207d0de87423f97c918e042c51ed25c6b6bcb634e4e9e2d", "from": "DavidsonCollege/dc-choreo-scaffold@46f1939" },
+    { "version": 2, "sha256": "3ba91ef454335bd43daf3c394525150e5058eca9c2b23fcb656c6bc75b5e7b63", "from": "DavidsonCollege/dc-choreo-scaffold@30e7d9a" }
   ],
   "CLAUDE.md": []
 }

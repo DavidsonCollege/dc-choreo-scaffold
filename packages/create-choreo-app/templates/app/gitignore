@@ -18,8 +18,8 @@ logs
 .fleet
 .idea
 
-# Credentials never go in the repository. The app reads its secrets from its
-# key vault at runtime (AGENTS.md rule 6).
+# Credentials never go in the repository. On a laptop, .env is a 1Password
+# Environment mount; in production the app reads its key vault (AGENTS.md rule 6).
 .env
 .env.*
 !.env.example
