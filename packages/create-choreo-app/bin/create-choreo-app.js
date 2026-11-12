@@ -163,16 +163,17 @@ function usage(message, json) {
 }
 
 /**
- * Plain lines for the files a command wrote, moved or kept.
+ * Plain lines for the files a command wrote or moved, and the app's own
+ * workflows it left alone.
  *
- * @param {{ written: string[], moved?: string[], kept?: string[] }} result The result.
+ * @param {{ written: string[], moved?: string[], workflows?: string[] }} result The result.
  * @returns {string[]} The lines.
  */
 function writtenLines(result) {
   return [
     ...result.written.map((path) => `wrote ${path}`),
     ...(result.moved ?? []).map((path) => `moved the old ${path} into BUILDER.md`),
-    ...(result.kept ?? []).map((path) => `kept your own ${path}: the app still deploys this way until PE replaces it with the Choreo deploy stub at the publish request`),
+    ...(result.workflows ?? []).map((path) => `left your own ${path} as it is: Platform Engineering looks at it when the app moves to Davidson's GitHub and again at go-live, and makes any change to it from then on`),
   ];
 }
 

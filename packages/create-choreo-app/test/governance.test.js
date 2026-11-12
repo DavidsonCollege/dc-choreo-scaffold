@@ -13,8 +13,9 @@ test('an empty folder gets every governance file and a non-paved passport', () =
   const dir = tmpApp();
   const result = run(dir);
   assert.equal(result.ok, true, JSON.stringify(result.problems));
-  assert.deepEqual(listFiles(dir), ['.github/CODEOWNERS', '.github/workflows/deploy.yml', 'AGENTS.md', 'BUILDER.md', 'CLAUDE.md', 'LICENSE', 'PASSPORT.yml']);
-  assert.equal(read(dir, '.github/workflows/deploy.yml'), readTemplate('deploy.yml'));
+  assert.deepEqual(listFiles(dir), ['.github/CODEOWNERS', 'AGENTS.md', 'BUILDER.md', 'CLAUDE.md', 'LICENSE', 'PASSPORT.yml']);
+  assert.deepEqual(result.workflows, []);
+  assert.equal('kept' in result, false);
   assert.equal(hashOf(read(dir, 'AGENTS.md')), hashOf(readTemplate('AGENTS.md')));
   assert.equal(read(dir, 'CLAUDE.md'), '@AGENTS.md\n');
   assert.match(read(dir, 'PASSPORT.yml'), /^road: "non-paved"$/m);
@@ -25,7 +26,7 @@ test('an empty folder gets every governance file and a non-paved passport', () =
 test('governance files are written with LF line endings', () => {
   const dir = tmpApp();
   run(dir);
-  for (const path of ['AGENTS.md', 'CLAUDE.md', '.github/CODEOWNERS', '.github/workflows/deploy.yml', 'PASSPORT.yml']) {
+  for (const path of ['AGENTS.md', 'CLAUDE.md', '.github/CODEOWNERS', 'PASSPORT.yml']) {
     assert.equal(read(dir, path).includes('\r'), false, path);
   }
 });
@@ -49,7 +50,7 @@ test("a builder's CODEOWNERS keeps their lines, with PE's block last, where GitH
   assert.equal(listFiles(dir).includes('.github/CODEOWNERS'), false);
   const text = read(dir, 'CODEOWNERS');
   assert.ok(text.startsWith('/src/ @example-builder\n\n# Managed by Platform Engineering.'));
-  assert.ok(text.trimEnd().endsWith('/CLAUDE.md @DavidsonChoreo/platform-engineering'));
+  assert.ok(text.trimEnd().endsWith('/.github/workflows/ @DavidsonChoreo/platform-engineering'));
 });
 
 test('an Apache-2.0 LICENSE already there is kept', () => {
@@ -102,34 +103,44 @@ test('a folder that does not exist is refused', () => {
 
 // A deploy workflow of the builder's own, which doesn't call PE's shared one.
 const OWN_DEPLOY = 'name: deploy\non:\n  push:\n    branches: [main]\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./deploy.sh\n';
+const OWN_TESTS = 'name: tests\non: [pull_request]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: make test\n';
 
-test("a container app's own deploy.yml is kept, and everything else is written", () => {
+// The package writes nothing under .github/workflows/: the
+// restrict-workflow-files ruleset refuses those files from a builder, and PE
+// adds the deploy stub at go-live (DavidsonCollege/platform-engineering#134).
+test("a brought-in app's workflows are listed and left exactly as they are", () => {
   const dir = tmpApp();
   put(dir, '.github/workflows/deploy.yml', OWN_DEPLOY);
+  put(dir, '.github/workflows/tests.yml', OWN_TESTS);
   const result = run(dir);
   assert.equal(result.ok, true, JSON.stringify(result.problems));
   assert.equal(read(dir, '.github/workflows/deploy.yml'), OWN_DEPLOY);
-  assert.deepEqual(result.kept, ['.github/workflows/deploy.yml']);
-  assert.equal(result.written.includes('.github/workflows/deploy.yml'), false);
+  assert.equal(read(dir, '.github/workflows/tests.yml'), OWN_TESTS);
+  assert.deepEqual(result.workflows, ['.github/workflows/deploy.yml', '.github/workflows/tests.yml']);
+  assert.equal(result.written.some((path) => path.startsWith('.github/workflows/')), false);
   assert.ok(result.written.includes('PASSPORT.yml'));
 });
 
-test("an edited copy of PE's deploy stub is brought back to PE's copy", () => {
+test("an edited copy of PE's old deploy stub is left alone too", () => {
   const dir = tmpApp();
-  put(dir, '.github/workflows/deploy.yml', `${readTemplate('deploy.yml')}      extra: true\n`);
+  const edited = 'name: deploy\njobs:\n  deploy:\n    uses: DavidsonChoreo/dc-choreo-workflows/.github/workflows/deploy.yml@v1\n      extra: true\n';
+  put(dir, '.github/workflows/deploy.yml', edited);
   const result = run(dir);
-  assert.equal(read(dir, '.github/workflows/deploy.yml'), readTemplate('deploy.yml'));
-  assert.deepEqual(result.kept, []);
+  assert.equal(read(dir, '.github/workflows/deploy.yml'), edited);
+  assert.deepEqual(result.workflows, ['.github/workflows/deploy.yml']);
 });
 
-test('a Pages site gets no deploy stub, and a deploy.yml already there is left alone', () => {
+test('a Pages site lists its workflows the same way', () => {
   const dir = tmpApp();
   put(dir, '.github/workflows/deploy.yml', OWN_DEPLOY);
   const result = run(dir, { answers: answers('answers-pages.json'), tier: 'pages' });
   assert.equal(result.ok, true, JSON.stringify(result.problems));
   assert.equal(read(dir, '.github/workflows/deploy.yml'), OWN_DEPLOY);
-  assert.deepEqual(result.kept, []);
-  const empty = tmpApp();
-  run(empty, { answers: answers('answers-pages.json'), tier: 'pages' });
-  assert.equal(listFiles(empty).includes('.github/workflows/deploy.yml'), false);
+  assert.deepEqual(result.workflows, ['.github/workflows/deploy.yml']);
+});
+
+test("PE's CODEOWNERS block gives the workflows folder to PE", () => {
+  const dir = tmpApp();
+  run(dir);
+  assert.match(read(dir, '.github/CODEOWNERS'), /^\/\.github\/workflows\/ @DavidsonChoreo\/platform-engineering$/m);
 });

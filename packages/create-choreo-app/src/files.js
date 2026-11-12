@@ -1,6 +1,6 @@
 // @ts-check
 // File helpers shared by the subcommands: the package's templates, the
-// governance files and their hashes, the deploy stub, CODEOWNERS, the license,
+// governance files and their hashes, the workflows folder, CODEOWNERS, the license,
 // and the package's own version.
 //
 // Governance files are read and written with LF line endings whatever the
@@ -8,7 +8,7 @@
 // endings to LF.
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,26 +19,26 @@ export const BASE_DIR = join(TEMPLATES_DIR, '_base');
 export const GOVERNED_FILES = ['AGENTS.md', 'CLAUDE.md'];
 
 /**
- * Where a container app keeps the deploy stub, PE's file that hands every
- * deploy to the shared workflow. The template keeps it as `_base/deploy.yml`.
- * A Pages site has none.
+ * The folder of an app's GitHub workflows. The package writes nothing here:
+ * the restrict-workflow-files ruleset refuses these files from a builder, and
+ * PE adds the deploy stub at go-live (DavidsonCollege/platform-engineering#134).
+ * CODEOWNERS gives the folder to PE.
  */
-export const DEPLOY_STUB = '.github/workflows/deploy.yml';
-
-// Every version of PE's stub calls the shared workflow. A deploy.yml that
-// doesn't is the builder's own deploy: it keeps working until PE swaps it at
-// the publish request, so no command here replaces it.
-const SHARED_DEPLOY = /^\s*uses:\s*DavidsonChoreo\/dc-choreo-workflows\/\.github\/workflows\/deploy\.yml@/m;
+export const WORKFLOWS_DIR = '.github/workflows';
 
 /**
- * Whether a deploy.yml is PE's stub, current, older or edited, rather than the
- * builder's own deploy.
+ * The files in an app's workflows folder, as paths from the app's folder.
  *
- * @param {string} text The file's text.
- * @returns {boolean} True when it calls PE's shared deploy workflow.
+ * @param {string} root The app's folder.
+ * @returns {string[]} The paths, sorted; empty when there's no folder.
  */
-export function isDeployStub(text) {
-  return SHARED_DEPLOY.test(text);
+export function listWorkflows(root) {
+  const dir = join(root, WORKFLOWS_DIR);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => `${WORKFLOWS_DIR}/${entry.name}`)
+    .sort();
 }
 
 /** The first line of the block Platform Engineering manages in CODEOWNERS. */

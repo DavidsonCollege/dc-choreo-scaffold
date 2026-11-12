@@ -3,8 +3,7 @@
 # test:           the package's unit tests.
 # sync:           the copies this package carries of files that live in
 #                 DavidsonChoreo/dc-choreo-workflows (the passport schema, PE's
-#                 CODEOWNERS block, the deploy stub, and the hashes of AGENTS.md
-#                 and CLAUDE.md)
+#                 CODEOWNERS block, and the hashes of AGENTS.md and CLAUDE.md)
 #                 still match that repository's main branch.
 # governance-app: a made-up app written by `governance`, checked by the real
 #                 Choreo passport, license and files checks.
@@ -31,7 +30,7 @@ permissions:
 env:
   # The dc-choreo-workflows commit whose check code the test apps run. Bump it,
   # by full SHA, when the checks change.
-  CHECKS_REF: dfb15197f534a56fc55d3bfe9f9d8dd53cd2e46a
+  CHECKS_REF: 2afd5a32c27e324e4bed57f478351051c9e3dc85
 
 jobs:
   test:
@@ -69,9 +68,6 @@ jobs:
         run: |
           cmp packages/create-choreo-app/templates/_base/CODEOWNERS workflows/canonical/CODEOWNERS \
             || { echo "::error::templates/_base/CODEOWNERS differs from dc-choreo-workflows canonical/CODEOWNERS."; exit 1; }
-      - name: The deploy stub copy matches
-        run: |
-          cmp packages/create-choreo-app/templates/_base/deploy.yml workflows/canonical/deploy.yml             || { echo "::error::templates/_base/deploy.yml differs from dc-choreo-workflows canonical/deploy.yml. Copy the stub over it."; exit 1; }
       - name: AGENTS.md and CLAUDE.md are listed in canonical/hashes.json
         run: |
           node --input-type=module -e "
