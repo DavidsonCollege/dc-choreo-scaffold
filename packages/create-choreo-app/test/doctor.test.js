@@ -27,6 +27,34 @@ test('a missing GitHub CLI fails, and its sign-in is not checked', async () => {
   assert.equal(status(result, 'gh-auth'), undefined);
 });
 
+const message = (result, id) => result.checks.find((c) => c.id === id)?.message;
+
+// Every install message names Make Me Admin, and asks T&I only when it isn't there.
+function assertSelfInstall(text) {
+  assert.match(text, /Make Me Admin/);
+  assert.match(text, /30 minutes/);
+  assert.match(text, /Self Service on a Mac/);
+  assert.match(text, /Make Me Admin app on Windows/);
+  assert.match(text, /If Make Me Admin isn't on the laptop, ask T&I\.$/);
+  assert.doesNotMatch(text, /Ask T&I (to install|for the managed)/);
+  assert.doesNotMatch(text, /\u2014/);
+}
+
+test('an old Node says to install the right version from nodejs.org with Make Me Admin', async () => {
+  const text = message(await doctor({ run: allGood, fetch: online, nodeVersion: '20.19.0' }), 'node');
+  assert.match(text, /Install Node 22 from nodejs\.org; npm comes with it\./);
+  assertSelfInstall(text);
+});
+
+test('missing npm, git and GitHub CLI each name their official installer and Make Me Admin', async () => {
+  const nothing = () => ({ status: 1, stdout: '' });
+  const result = await doctor({ run: nothing, fetch: online, nodeVersion: '22.22.3' });
+  assert.match(message(result, 'npm'), /npm comes with Node: install Node 22 from nodejs\.org\./);
+  assert.match(message(result, 'git'), /On a Mac, run `xcode-select --install`; on Windows, install it from git-scm\.com\./);
+  assert.match(message(result, 'gh'), /^The GitHub CLI isn't installed.*Install it from cli\.github\.com\./);
+  for (const id of ['npm', 'git', 'gh']) assertSelfInstall(message(result, id));
+});
+
 test('a signed-out GitHub CLI warns with how to sign in, and the computer is still ready', async () => {
   const signedOut = (command, args) => (args[0] === 'auth' ? { status: 1, stdout: 'not logged in' } : allGood(command, args));
   const result = await doctor({ run: signedOut, fetch: online, nodeVersion: '22.22.3' });
