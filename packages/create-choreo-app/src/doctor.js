@@ -4,7 +4,9 @@
 //
 // It checks the Node version against the range apps use, that npm, git and the
 // GitHub CLI are installed, whether the GitHub CLI is signed in, and that the npm
-// registry and GitHub can be reached over HTTPS. Not being signed in is only a
+// registry and GitHub can be reached over HTTPS. A missing or old tool's message
+// names its official installer; on a college laptop the builder uses Admin On
+// Demand first, and asks T&I only when it isn't there. Not being signed in is only a
 // warning: setting up an app doesn't need it (releases attach their attestation
 // bundle, so the check works offline), and backing up to GitHub later does. A certificate error on that
 // last check usually means the network inspects encrypted traffic, which breaks
@@ -28,6 +30,10 @@ const ENDPOINTS = [
   ['github', 'https://github.com/DavidsonCollege/dc-choreo-scaffold', "GitHub, where the layer's release files come from"],
 ];
 const TIMEOUT_MS = 10_000;
+
+// How a builder gets the admin rights an installer needs on a college laptop:
+// T&I's Admin On Demand, https://support.ti.davidson.edu/hc/en-us/articles/18050078044183
+const ADMIN_ON_DEMAND = 'On a college laptop, first give yourself about 30 minutes of admin rights with Admin On Demand: the Privileges app on a Mac, the Make Me Admin app on Windows. If neither app is on the laptop, ask T&I.';
 
 // Node's error codes for a certificate the computer doesn't trust.
 const CERTIFICATE_ERRORS = new Set([
@@ -74,15 +80,22 @@ export async function doctor({ run = runCommand, fetch = fetchUrl, nodeVersion =
   const checks = [];
 
   const range = MANIFEST.node.engines;
+  const node = `Node ${MANIFEST.node.nvmrc}`;
   checks.push(satisfies(nodeVersion, range)
     ? { id: 'node', status: 'pass', message: `Node ${nodeVersion} is in the range apps use (${range}).` }
-    : { id: 'node', status: 'fail', message: `Node ${nodeVersion} isn't in the range apps use (${range}). Ask T&I for the managed Node ${MANIFEST.node.nvmrc} install.` });
+    : { id: 'node', status: 'fail', message: `Node ${nodeVersion} isn't in the range apps use (${range}). Install ${node} from nodejs.org; npm comes with it. ${ADMIN_ON_DEMAND}` });
 
-  for (const [id, command, what] of [['npm', 'npm', 'npm'], ['git', 'git', 'git'], ['gh', 'gh', 'the GitHub CLI']]) {
-    const result = run(command, ['--version']);
+  /** @type {[string, string, string][]} */
+  const tools = [
+    ['npm', 'npm', `npm comes with Node: install ${node} from nodejs.org.`],
+    ['git', 'git', 'On a Mac, run `xcode-select --install`; on Windows, install it from git-scm.com.'],
+    ['gh', 'The GitHub CLI', 'Install it from cli.github.com.'],
+  ];
+  for (const [id, what, install] of tools) {
+    const result = run(id, ['--version']);
     checks.push(result.status === 0
       ? { id, status: 'pass', message: `${what} is installed (${firstLine(result.stdout)}).` }
-      : { id, status: 'fail', message: `${what} isn't installed, or can't be found. Ask T&I to install it.` });
+      : { id, status: 'fail', message: `${what} isn't installed, or can't be found. ${install} ${ADMIN_ON_DEMAND}` });
   }
 
   if (checks.find((c) => c.id === 'gh')?.status === 'pass') {
